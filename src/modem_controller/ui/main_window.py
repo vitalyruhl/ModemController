@@ -41,6 +41,7 @@ from modem_controller.catalog.storage import (
     last_directory,
     merge_catalog_overlay,
 )
+from modem_controller.paths import application_directory
 from modem_controller.transport.serial_port import available_ports
 from modem_controller.ui.catalog_editor import CatalogEditor
 from modem_controller.ui.connection_controller import ConnectionController
@@ -50,6 +51,7 @@ from modem_controller.ui.search_dialog import SearchOptionsDialog
 from modem_controller.ui.session_log import LogMode, LogWriteError, SessionLog
 from modem_controller.ui.sms_dialog import SmsDialog
 from modem_controller.ui.terminal_view import TerminalWorkspace
+from modem_controller.ui.tools_dialog import ToolsDialog
 from modem_controller.versioning import version_label
 from modem_controller.workflows.connection_search import (
     ConnectionSearchResult,
@@ -129,6 +131,8 @@ class MainWindow(QMainWindow):
         self.sms_action.triggered.connect(self._show_sms_dialog)
         self.menuBar().addMenu("Messaging").addAction(self.sms_action)
         self._create_logging_menu()
+        self.tools_action = self.menuBar().addAction("Local tools...")
+        self.tools_action.triggered.connect(self._show_tools)
         self.menuBar().addMenu("Evidence").addAction(
             "Preview / export report...", self._preview_report
         )
@@ -641,6 +645,28 @@ class MainWindow(QMainWindow):
         self.sms_dialog.show()
         self.sms_dialog.raise_()
         self.sms_dialog.activateWindow()
+
+    def _show_tools(self) -> None:
+        if self._workflow_active:
+            self.terminal.append_info(
+                "Finish or cancel the active workflow before opening tools."
+            )
+            return
+        if self._connection_controller is not None:
+            self._connection_controller.shutdown()
+            self._connection_controller = None
+            self._disconnected()
+        directory = (
+            self._settings_store.directory
+            if self._settings_store
+            else application_directory()
+        )
+        self.set_workflow_active(True)
+        try:
+            dialog = ToolsDialog(directory, self)
+            dialog.exec()
+        finally:
+            self.set_workflow_active(False)
 
     def _create_logging_menu(self) -> None:
         menu = self.menuBar().addMenu("Logging")

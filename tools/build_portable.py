@@ -115,6 +115,10 @@ def build() -> Path:
     shutil.copy2(stage / "ModemConsole" / "ModemConsole.exe", bundle)
     shutil.copytree(stage / "ModemConsole" / "_console", bundle / "_console")
     seed_catalog_files(bundle)
+    shutil.copy2(
+        PROJECT_ROOT / "src" / "modem_controller" / "tool_data" / "tools.json",
+        bundle / "tools.json",
+    )
     (bundle / "build-info.json").write_text(
         json.dumps(info, indent=2) + "\n", encoding="utf-8"
     )
@@ -131,6 +135,7 @@ def build() -> Path:
         "third-party-notices.md",
         "versioning.md",
         "release-notes.md",
+        "local-tools.md",
     ):
         shutil.copy2(PROJECT_ROOT / "docs" / name, help_directory / name)
     shutil.copytree(PROJECT_ROOT / "docs" / "licenses", bundle / "licenses")
