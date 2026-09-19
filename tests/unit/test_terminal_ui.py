@@ -10,6 +10,50 @@ from modem_controller.ui.session_log import LogMode
 from modem_controller.ui.terminal_view import TerminalDirection, TerminalWorkspace
 
 
+def test_history_navigation_filters_and_never_recalls_credentials(qtbot):
+    terminal = TerminalWorkspace()
+    qtbot.addWidget(terminal)
+    for command in ("AT", "AT+CSQ", "AT+CPIN=1234"):
+        terminal.command_input.setText(command)
+        terminal.submit_text()
+    qtbot.keyClick(terminal.command_input, Qt.Key_Up)
+    assert terminal.command_input.text() == "AT+CSQ"
+    qtbot.keyClick(terminal.command_input, Qt.Key_Up)
+    assert terminal.command_input.text() == "AT"
+    terminal.history_filter.setText("CSQ")
+    qtbot.keyClick(terminal.command_input, Qt.Key_Up)
+    assert terminal.command_input.text() == "AT+CSQ"
+
+
+def test_non_ascii_send_is_rejected_and_display_options_preserve_bytes(qtbot):
+    terminal = TerminalWorkspace()
+    qtbot.addWidget(terminal)
+    sent = []
+    terminal.text_submitted.connect(lambda *args: sent.append(args))
+    terminal.command_input.setText("ATä")
+    assert not terminal.submit_text()
+    assert not sent
+    raw = b"one\r\n\r\n\r\ntwo\xff\x1b"
+    terminal.append_received(raw)
+    terminal.compact_blanks.setChecked(True)
+    terminal.show_controls.setChecked(True)
+    terminal.timestamps.setChecked(True)
+    terminal.encoding.setCurrentText("latin-1")
+    assert terminal.entries[0].data == raw
+    assert "<ESC>" in terminal.transcript.toPlainText()
+    assert "bytes" in terminal.counts.text()
+
+
+def test_response_timeout_does_not_change_write_timeout(qtbot):
+    panel = ConnectionPanel()
+    qtbot.addWidget(panel)
+    panel.set_ports(["COM10"])
+    panel.deadline.setValue(5000)
+    settings = panel.selected_settings()
+    assert settings.response_timeout == 5
+    assert settings.write_timeout == 1
+
+
 def test_secret_input_is_transient_and_not_retained_in_entries(qtbot) -> None:
     terminal = TerminalWorkspace()
     qtbot.addWidget(terminal)

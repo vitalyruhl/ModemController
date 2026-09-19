@@ -56,6 +56,8 @@ class SerialSettings:
     read_timeout: float = 0.1
     write_timeout: float = 1.0
     control_lines: ControlLinePolicy = ControlLinePolicy()
+    response_timeout: float = 2.0
+    inter_byte_delay: float = 0.0
 
     def __post_init__(self) -> None:
         if not self.port.strip():
@@ -68,6 +70,8 @@ class SerialSettings:
             raise ValueError("stop_bits must be 1, 1.5, or 2")
         if self.read_timeout < 0 or self.write_timeout < 0:
             raise ValueError("timeouts must not be negative")
+        if not 0 < self.response_timeout <= 60 or not 0 <= self.inter_byte_delay <= 0.1:
+            raise ValueError("response timeout or pacing is outside its bounded range")
 
 
 class SerialEventKind(str, Enum):
@@ -212,6 +216,20 @@ class PySerialBackend:
     def cancel_write(self) -> None:
         self._serial.cancel_write()
 
+    def status_lines(self) -> dict[str, bool | None]:
+        result = {}
+        for name in ("cts", "dsr", "ri", "cd"):
+            try:
+                result[name] = bool(getattr(self._serial, name))
+            except (
+                OSError,
+                serial.SerialException,
+                AttributeError,
+                NotImplementedError,
+            ):
+                result[name] = None
+        return result
+
 
 BackendFactory = Callable[[SerialSettings], SerialBackend]
 Clock = Callable[[], datetime]
@@ -302,6 +320,35 @@ class SerialPort:
                 self._queue_event(SerialEventKind.ERROR, detail=str(error))
             finally:
                 self._queue_event(SerialEventKind.DISCONNECTED)
+
+    def set_control_lines(self, policy: ControlLinePolicy) -> None:
+        with self._lock:
+            backend = self._require_backend()
+            if self._settings is not None:
+                if (
+                    self._settings.flow_control is FlowControl.RTS_CTS
+                    and policy.rts is not None
+                ):
+                    raise SerialIOError("RTS is owned by hardware flow control")
+                if (
+                    self._settings.flow_control is FlowControl.DSR_DTR
+                    and policy.dtr is not None
+                ):
+                    raise SerialIOError("DTR is owned by hardware flow control")
+            try:
+                self._apply_control_lines(backend, policy)
+            except (OSError, serial.SerialException, NotImplementedError) as error:
+                raise SerialIOError(
+                    f"Could not change control lines: {error}"
+                ) from error
+
+    def status_lines(self) -> dict[str, bool | None]:
+        with self._lock:
+            backend = self._require_backend()
+            read = getattr(backend, "status_lines", None)
+            if read is None:
+                return dict.fromkeys(("cts", "dsr", "ri", "cd"))
+            return read()
 
     def cancel(self) -> None:
         """Cancel backend I/O where supported and deterministically release the port."""

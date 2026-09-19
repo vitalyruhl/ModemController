@@ -128,6 +128,9 @@ class MainWindow(QMainWindow):
         self.connection_panel.find_settings_requested.connect(self._find_settings)
         self.connection_panel.diagnostics_requested.connect(self._run_diagnostics)
         self.connection_panel.cancel_requested.connect(self._cancel_workflow)
+        self.connection_panel.lines_requested.connect(
+            lambda policy: self._controller().set_control_lines(policy)
+        )
         self.terminal.text_submitted.connect(self._send_text)
         self.terminal.bytes_submitted.connect(self._send_bytes)
         self.terminal.clear_requested.connect(self._terminal_cleared)
@@ -152,6 +155,7 @@ class MainWindow(QMainWindow):
         self._load_preferences()
         self.refresh_ports()
         self.connection_panel.apply_preferences(self._settings.connection)
+        self.terminal.apply_preferences(self._settings.connection)
         if settings_message:
             self.statusBar().showMessage(settings_message)
 
@@ -288,7 +292,11 @@ class MainWindow(QMainWindow):
 
     def _send_text(self, command: str, terminator: bytes, sensitive: bool) -> None:
         self.text_send_requested.emit(command, terminator, sensitive)
-        payload = command.encode("ascii", errors="replace") + terminator
+        try:
+            payload = command.encode("ascii") + terminator
+        except UnicodeEncodeError:
+            self.terminal.append_info("Command must be ASCII; nothing sent.")
+            return
         self._controller().send(payload, sensitive=sensitive)
 
     def _send_bytes(self, payload: bytes) -> None:
@@ -307,6 +315,9 @@ class MainWindow(QMainWindow):
         controller.received.connect(self._received)
         controller.session_received.connect(self._log_received)
         controller.transmitted.connect(self._log_transmitted)
+        if hasattr(controller, "status_lines"):
+            controller.status_lines.connect(self.connection_panel.show_lines)
+            controller.notice.connect(self.terminal.append_info)
         if hasattr(controller, "capture_gap"):
             controller.capture_gap.connect(self._capture_gap)
         controller.control_bytes_sent.connect(self._show_control_bytes_sent)
@@ -650,7 +661,10 @@ class MainWindow(QMainWindow):
         settings = Settings(
             selected_profile=self.profile_selector.currentData(),
             selected_category=self.category_selector.currentText(),
-            connection=self.connection_panel.preferences(),
+            connection={
+                **self.connection_panel.preferences(),
+                **self.terminal.preferences(),
+            },
             last_directories=self._settings.last_directories,
             favorites=self._settings.favorites,
             profile_notes={p.id: p.user_notes for p in self._catalog.profiles},

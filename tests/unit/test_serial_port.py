@@ -96,6 +96,22 @@ def open_port(port: SerialPort, **settings_options: Any) -> None:
     port.open(SerialSettings(port="COM7", **settings_options))
 
 
+def test_line_controls_are_explicit_and_unavailable_inputs_stay_unknown():
+    backend = FakeSerialBackend()
+    port = make_port(backend)
+    open_port(port)
+    assert port.status_lines() == dict.fromkeys(("cts", "dsr", "ri", "cd"))
+    port.set_control_lines(ControlLinePolicy(dtr=True, rts=False))
+    assert backend.dtr is True
+    assert backend.rts is False
+    assert not backend.writes
+    port.close()
+    open_port(port, flow_control=FlowControl.RTS_CTS)
+    with pytest.raises(SerialIOError, match="flow control"):
+        port.set_control_lines(ControlLinePolicy(rts=False))
+    port.close()
+
+
 @pytest.mark.parametrize(
     "payload",
     [b"\r", b"\n", b"\r\n", b"\x1b", b"\x1a", b"AT\r"],

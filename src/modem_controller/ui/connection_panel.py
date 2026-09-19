@@ -15,7 +15,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from modem_controller.transport.serial_port import FlowControl, Parity, SerialSettings
+from modem_controller.transport.serial_port import (
+    ControlLinePolicy,
+    FlowControl,
+    Parity,
+    SerialSettings,
+)
 
 
 class ConnectionPanel(QWidget):
@@ -27,6 +32,7 @@ class ConnectionPanel(QWidget):
     find_settings_requested = Signal()
     diagnostics_requested = Signal()
     cancel_requested = Signal()
+    lines_requested = Signal(object)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -81,6 +87,27 @@ class ConnectionPanel(QWidget):
         advanced_layout.addRow("Stop bits", self.stop_bits)
         advanced_layout.addRow("Flow control", self.flow_control)
         advanced_layout.addRow("Response timeout", self.deadline)
+        self.dtr = QComboBox(self)
+        self.rts = QComboBox(self)
+        for selector in (self.dtr, self.rts):
+            selector.addItems(["Driver default", "On", "Off"])
+        self.apply_lines = QPushButton("Apply DTR / RTS now", self)
+        self.apply_lines.setEnabled(False)
+        self.apply_lines.clicked.connect(
+            lambda: self.lines_requested.emit(self.selected_lines())
+        )
+        self.line_status = QLabel("CTS / DSR / RI / CD: unavailable", self)
+        self.pacing = QSpinBox(self)
+        self.pacing.setRange(0, 100)
+        self.pacing.setSuffix(" ms per byte")
+        for name, widget in (
+            ("DTR", self.dtr),
+            ("RTS", self.rts),
+            ("", self.apply_lines),
+            ("Signals", self.line_status),
+            ("Manual TX pacing", self.pacing),
+        ):
+            advanced_layout.addRow(name, widget)
         self.advanced.toggled.connect(self._set_advanced_visible)
         self._set_advanced_visible(False)
 
@@ -117,6 +144,24 @@ class ConnectionPanel(QWidget):
         self.connect_button.setEnabled(not connected)
         self.disconnect_button.setEnabled(connected)
         self.diagnostics_button.setEnabled(connected)
+        self.apply_lines.setEnabled(connected)
+
+    def selected_lines(self) -> ControlLinePolicy:
+        states = {"Driver default": None, "On": True, "Off": False}
+        flow = self.flow_control.currentText()
+        return ControlLinePolicy(
+            dtr=None if flow == "DSR/DTR" else states[self.dtr.currentText()],
+            rts=None if flow == "RTS/CTS" else states[self.rts.currentText()],
+        )
+
+    def show_lines(self, values: dict[str, bool | None]) -> None:
+        self.line_status.setText(
+            " | ".join(
+                f"{key.upper()}: "
+                + ("unavailable" if value is None else "On" if value else "Off")
+                for key, value in values.items()
+            )
+        )
 
     def selected_settings(self) -> SerialSettings:
         port = self.port_selector.currentText()
@@ -134,7 +179,9 @@ class ConnectionPanel(QWidget):
             parity=Parity(self.parity.currentText()),
             stop_bits=float(self.stop_bits.currentText()),
             flow_control=flow_control,
-            write_timeout=self.deadline.value() / 1_000,
+            response_timeout=self.deadline.value() / 1_000,
+            inter_byte_delay=self.pacing.value() / 1_000,
+            control_lines=self.selected_lines(),
         )
 
     def set_connecting(self) -> None:
@@ -150,6 +197,9 @@ class ConnectionPanel(QWidget):
             "stop_bits": self.stop_bits.currentText(),
             "flow_control": self.flow_control.currentText(),
             "deadline_ms": str(self.deadline.value()),
+            "dtr": self.dtr.currentText(),
+            "rts": self.rts.currentText(),
+            "pacing_ms": str(self.pacing.value()),
         }
 
     def apply_preferences(self, preferences: dict[str, str]) -> None:
@@ -164,6 +214,8 @@ class ConnectionPanel(QWidget):
             (self.parity, "parity"),
             (self.stop_bits, "stop_bits"),
             (self.flow_control, "flow_control"),
+            (self.dtr, "dtr"),
+            (self.rts, "rts"),
         ):
             value = preferences.get(key)
             if value is not None and selector.findText(value) >= 0:
@@ -171,6 +223,9 @@ class ConnectionPanel(QWidget):
         deadline = preferences.get("deadline_ms")
         if deadline is not None and deadline.isdecimal():
             self.deadline.setValue(int(deadline))
+        pacing = preferences.get("pacing_ms", "0")
+        if pacing.isdecimal():
+            self.pacing.setValue(int(pacing))
 
     def apply_settings(self, settings: SerialSettings) -> None:
         self.apply_preferences(
@@ -191,6 +246,7 @@ class ConnectionPanel(QWidget):
     def set_workflow_active(self, active: bool) -> None:
         self.cancel_button.setEnabled(active)
         self.find_button.setEnabled(not active)
+        self.apply_lines.setEnabled(not active and self.disconnect_button.isEnabled())
         self.diagnostics_button.setEnabled(
             not active and not self.connect_button.isEnabled()
         )

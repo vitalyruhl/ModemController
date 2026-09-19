@@ -63,6 +63,53 @@ def test_worker_opens_sends_receives_and_closes_without_ui_thread_io(qtbot) -> N
     assert not port.is_open
 
 
+def test_manual_response_deadline_reports_unknown_without_closing(qtbot):
+    port = FakePort()
+    worker = SerialConnectionWorker(lambda: port)
+    notices = []
+    worker.notice.connect(notices.append)
+    worker.open(SerialSettings(port="COM10", response_timeout=0.1))
+    worker.send(b"AT\r", False)
+    worker._response_deadline = 0
+    worker.poll()
+    assert "outcome is unknown" in notices[-1]
+    assert port.is_open
+    assert port.writes == [(b"AT\r", False)]
+    worker.close()
+
+
+def test_pacing_can_cancel_after_one_byte_and_releases_port(qtbot):
+    from threading import Event
+
+    cancelled = Event()
+
+    class CancellingPort(FakePort):
+        def write(self, payload):
+            count = super().write(payload)
+            cancelled.set()
+            return count
+
+    port = CancellingPort()
+    worker = SerialConnectionWorker(lambda: port, cancel_requested=cancelled)
+    worker.open(SerialSettings(port="COM10", inter_byte_delay=0.01))
+    worker.send(b"AT\r", False)
+    assert port.writes == [(b"A", False)]
+    assert not port.is_open
+
+
+def test_paced_credentials_remain_excluded_from_emitted_payloads(qtbot):
+    port = FakePort()
+    worker = SerialConnectionWorker(lambda: port)
+    sent = []
+    worker.transmitted.connect(sent.append)
+    worker.open(SerialSettings(port="COM10", inter_byte_delay=0.001))
+    worker.send(b"AT+CPIN=1234\r", False)
+    assert not sent
+    assert all(secret for _, secret in port.writes)
+    assert b"".join(data for data, _ in port.writes) == b"AT+CPIN=1234\r"
+    worker.close()
+
+
 def test_worker_confirms_control_bytes_only_after_the_write_succeeds(qtbot) -> None:
     port = FakePort()
     port.open(SerialSettings(port="COM10"))

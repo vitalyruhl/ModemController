@@ -97,6 +97,8 @@ class SerialConnectionWorker(QObject):
     sms_status_completed = Signal(object)
     workflow_finished = Signal()
     capture_gap = Signal(str)
+    status_lines = Signal(object)
+    notice = Signal(str)
 
     def __init__(
         self,
@@ -110,6 +112,9 @@ class SerialConnectionWorker(QObject):
         self._poll_timer: QTimer | None = None
         self._cancel_requested = cancel_requested or Event()
         self._secret = False
+        self._settings: SerialSettings | None = None
+        self._response_deadline: float | None = None
+        self._last_lines = None
 
     @Slot(object)
     def open(self, settings: SerialSettings) -> None:
@@ -121,6 +126,7 @@ class SerialConnectionWorker(QObject):
             self.error.emit(str(error))
             return
         self._port = port
+        self._settings = settings
         self._secret = False
         self._ensure_poll_timer().start(25)
         self.connected.emit(_format_settings(settings))
@@ -132,6 +138,7 @@ class SerialConnectionWorker(QObject):
             timer.stop()
         port = self._port
         self._port = None
+        self._response_deadline = None
         if port is not None:
             port.close()
             self.disconnected.emit()
@@ -140,16 +147,27 @@ class SerialConnectionWorker(QObject):
     def send(self, payload: bytes, sensitive: bool) -> None:
         if sensitive or contains_secret_input(payload):
             self._pause_secret_capture()
-        if self._write(payload, sensitive=self._secret) and not self._secret:
-            self.transmitted.emit(payload)
+        if self._write(payload, sensitive=self._secret):
+            self._response_deadline = monotonic() + (
+                self._settings.response_timeout if self._settings else 2
+            )
 
     @Slot(bytes)
     def send_control_bytes(self, payload: bytes) -> None:
         if contains_secret_input(payload):
             self._pause_secret_capture()
         if self._write(payload, sensitive=self._secret) and not self._secret:
-            self.transmitted.emit(payload)
             self.control_bytes_sent.emit(payload)
+
+    @Slot(object)
+    def set_control_lines(self, policy) -> None:
+        if self._port is None or not self._port.is_open:
+            self.notice.emit("No serial connection is open.")
+            return
+        try:
+            self._port.set_control_lines(policy)
+        except SerialPortError as error:
+            self.notice.emit(str(error))
 
     def _pause_secret_capture(self) -> None:
         if not self._secret:
@@ -166,10 +184,27 @@ class SerialConnectionWorker(QObject):
             self.error.emit("No serial connection is open.")
             return False
         try:
-            if sensitive:
-                port.write_sensitive(payload)
-            else:
-                port.write(payload)
+            delay = self._settings.inter_byte_delay if self._settings else 0
+            if delay and len(payload) * delay > 10:
+                self.notice.emit(
+                    "Paced send exceeds the 10-second limit; shorten the payload."
+                )
+                return False
+            chunks = [bytes([byte]) for byte in payload] if delay else [payload]
+            for index, chunk in enumerate(chunks):
+                if self._cancel_requested.is_set() or (
+                    index and self._cancel_requested.wait(delay)
+                ):
+                    self.notice.emit(
+                        "Manual transmission cancelled; some bytes may have been sent."
+                    )
+                    self.close()
+                    return False
+                if sensitive:
+                    port.write_sensitive(chunk)
+                else:
+                    port.write(chunk)
+                    self.transmitted.emit(chunk)
         except SerialPortError as error:
             self.error.emit(str(error))
             self.close()
@@ -189,6 +224,25 @@ class SerialConnectionWorker(QObject):
             return
         if data and not self._secret:
             self.received.emit(data)
+        if data:
+            self._response_deadline = None
+        elif (
+            self._response_deadline is not None
+            and monotonic() >= self._response_deadline
+        ):
+            self._response_deadline = None
+            self.notice.emit(
+                "Response deadline elapsed without received bytes; "
+                "command outcome is unknown."
+            )
+        if hasattr(port, "status_lines"):
+            try:
+                lines = port.status_lines()
+                if lines != self._last_lines:
+                    self._last_lines = lines
+                    self.status_lines.emit(lines)
+            except SerialPortError:
+                self.status_lines.emit(dict.fromkeys(("cts", "dsr", "ri", "cd")))
 
     @Slot(object)
     def run_diagnostics(self, profile: DeviceProfile) -> None:
@@ -331,6 +385,9 @@ class SerialConnectionWorker(QObject):
         sensitive: bool = False,
     ) -> AtExchange:
         started_at = monotonic()
+        self._response_deadline = None
+        if self._settings is not None:
+            timeout = min(timeout, self._settings.response_timeout)
         try:
             session.start(
                 payload,
@@ -398,6 +455,9 @@ class ConnectionController(QObject):
     sms_status_completed = Signal(object)
     workflow_finished = Signal()
     capture_gap = Signal(str)
+    status_lines = Signal(object)
+    notice = Signal(str)
+    _lines_requested = Signal(object)
 
     _open_requested = Signal(object)
     _close_requested = Signal()
@@ -458,15 +518,25 @@ class ConnectionController(QObject):
         self._worker.sms_status_completed.connect(self.sms_status_completed)
         self._worker.workflow_finished.connect(self.workflow_finished)
         self._worker.capture_gap.connect(self.capture_gap)
+        self._worker.status_lines.connect(self.status_lines)
+        self._worker.notice.connect(self.notice)
+        self._lines_requested.connect(
+            self._worker.set_control_lines, Qt.QueuedConnection
+        )
         self._thread.start()
 
     def open(self, settings: SerialSettings) -> None:
         self._open_requested.emit(settings)
 
     def close(self) -> None:
+        self._cancel_requested.set()
         self._close_requested.emit()
 
+    def set_control_lines(self, policy) -> None:
+        self._lines_requested.emit(policy)
+
     def send(self, payload: bytes, *, sensitive: bool = False) -> None:
+        self._cancel_requested.clear()
         self._send_requested.emit(payload, sensitive)
 
     def send_control_bytes(self, payload: bytes) -> None:
@@ -501,6 +571,7 @@ class ConnectionController(QObject):
     def shutdown(self) -> None:
         if not self._thread.isRunning():
             return
+        self._cancel_requested.set()
         QMetaObject.invokeMethod(self._worker, "close", Qt.BlockingQueuedConnection)
         self._thread.quit()
         self._thread.wait(2_000)
