@@ -12,3 +12,12 @@ closes the invalidated connection after the single confirmed action.
 Explicitly enabled SMS wire logging remains sensitive local evidence and can
 contain recipients and message bodies. It is separate from a redacted shareable
 report. Logs are never uploaded automatically.
+# SMS submission boundary
+
+The reviewed generic SMS path queries SIM readiness, text mode and the IRA
+character set before issuing CMGS. It currently accepts letters, digits, spaces
+and basic ASCII punctuation only. It never changes modes automatically. Other
+character sets and PDU mode stop before submission. Device-specific profiles
+default to no SMS capability until reviewed. A CMGS reference plus final OK
+confirms modem submission, not recipient delivery. Cancellation after Ctrl+Z has
+an unknown outcome and must not cause an automatic resend.

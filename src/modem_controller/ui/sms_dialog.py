@@ -51,6 +51,13 @@ class SmsDialog(QDialog):
         form = QFormLayout()
         form.addRow("Recipient", self.recipient)
         form.addRow("Message", self.body)
+        hint = QLabel(
+            "Sending requires SIM READY, text mode and IRA. "
+            "Use basic ASCII text; no automatic mode changes.",
+            self,
+        )
+        hint.setWordWrap(True)
+        form.addRow(hint)
         form.addRow("Message index", self.index)
         buttons = QHBoxLayout()
         buttons.addWidget(self.status_button)

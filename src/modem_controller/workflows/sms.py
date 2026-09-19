@@ -16,6 +16,7 @@ class SmsOutcome(str, Enum):
     CANCELLED = "cancelled"
     SENT = "sent"
     INDETERMINATE = "indeterminate"
+    NOT_READY = "not_ready"
 
 
 class SmsConfirmationRequiredError(ValueError):
@@ -33,7 +34,7 @@ class SmsMessage:
         if not self.body or len(self.body) > 160:
             raise ValueError("text-mode SMS body must contain 1 to 160 characters")
         if not self.body.isascii() or any(
-            ord(character) < 32 for character in self.body
+            not 32 <= ord(character) < 127 for character in self.body
         ):
             raise ValueError("only printable ASCII text-mode SMS bodies are supported")
 
@@ -73,8 +74,12 @@ class SmsSendWorkflow:
         self._completion_timeout = completion_timeout
         self._message: SmsMessage | None = None
         self._submitted = False
+        self._preflight_index = 0
+        self._checking = False
 
-    def begin(self, message: SmsMessage, *, confirmed: bool) -> SmsSendResult | None:
+    def begin(
+        self, message: SmsMessage, *, confirmed: bool, profile_supported: bool = True
+    ) -> SmsSendResult | None:
         if not confirmed:
             return SmsSendResult(
                 SmsOutcome.CANCELLED,
@@ -83,16 +88,38 @@ class SmsSendWorkflow:
             )
         self._message = message
         self._submitted = False
+        if not profile_supported:
+            return SmsSendResult(
+                SmsOutcome.NOT_READY,
+                (),
+                "The selected profile has no reviewed SMS support. Nothing sent.",
+            )
+        self._preflight_index = 0
+        self._checking = True
+        self._start_check()
+        return None
+
+    def _start_check(self) -> None:
+        self._session.start(
+            (b"AT+CPIN?\r", b"AT+CMGF?\r", b"AT+CSCS?\r")[self._preflight_index],
+            timeout=min(self._completion_timeout, timedelta(seconds=5)),
+        )
+
+    def _start_submission(self) -> None:
+        message = self._message
+        if message is None:
+            raise RuntimeError("SMS message is missing")
         self._session.start(
             f'AT+CMGS="{message.recipient}"\r'.encode("ascii"),
             timeout=self._completion_timeout,
             sensitive=True,
         )
-        return None
 
     def poll(self) -> SmsSendResult | None:
         completed = self._session.poll()
         if completed is not None:
+            if self._checking:
+                return self._check_result(completed)
             return self._result(completed)
         active = self._session.active_exchange
         if active is not None and active.prompt_received and not self._submitted:
@@ -108,24 +135,69 @@ class SmsSendWorkflow:
     def cancel(self) -> SmsSendResult:
         return self._result(self._session.cancel())
 
-    @staticmethod
-    def _result(exchange: AtExchange) -> SmsSendResult:
+    def _check_result(self, exchange: AtExchange) -> SmsSendResult | None:
+        expected = (rb"\+CPIN:\s*READY", rb"\+CMGF:\s*1", rb'\+CSCS:\s*"IRA"')[
+            self._preflight_index
+        ]
+        if (
+            exchange.outcome is not ExchangeOutcome.COMPLETED
+            or exchange.final_result != b"OK"
+            or not any(
+                re.fullmatch(expected, line.strip(), re.I)
+                for line in exchange.response_lines
+            )
+        ):
+            labels = (
+                "SIM must be present and READY",
+                "SMS mode must already be text mode",
+                "Only the IRA character set is supported",
+            )
+            return SmsSendResult(
+                SmsOutcome.NOT_READY,
+                exchange.response_lines,
+                labels[self._preflight_index]
+                + ". No SMS submitted; no configuration changed.",
+            )
+        self._preflight_index += 1
+        if self._preflight_index < 3:
+            self._start_check()
+        else:
+            # Avoid ambiguous extension characters in the initial sender.
+            if self._message is None or not re.fullmatch(
+                r"""[A-Za-z0-9 !"#%&'()*+,\-./:;<=>?]+""", self._message.body
+            ):
+                return SmsSendResult(
+                    SmsOutcome.NOT_READY,
+                    (),
+                    "Use letters, digits and basic ASCII punctuation. "
+                    "No SMS submitted.",
+                )
+            self._checking = False
+            self._start_submission()
+        return None
+
+    def _result(self, exchange: AtExchange) -> SmsSendResult:
         evidence = exchange.response_lines + (
             (exchange.final_result,) if exchange.final_result is not None else ()
         )
         if (
             exchange.outcome is ExchangeOutcome.COMPLETED
             and exchange.final_result == b"OK"
+            and self._submitted
+            and any(
+                re.fullmatch(rb"\+CMGS:\s*\d+", line.strip())
+                for line in exchange.response_lines
+            )
         ):
             return SmsSendResult(
                 SmsOutcome.SENT,
                 evidence,
                 (
-                    "Delivery acknowledgement recorded; no message will be resent "
-                    "automatically."
+                    "Modem submission acknowledged. Delivery to the recipient is not "
+                    "confirmed. No automatic resend."
                 ),
             )
-        if exchange.outcome is ExchangeOutcome.CANCELLED:
+        if exchange.outcome is ExchangeOutcome.CANCELLED and not self._submitted:
             return SmsSendResult(
                 SmsOutcome.CANCELLED,
                 evidence,
@@ -134,5 +206,5 @@ class SmsSendWorkflow:
         return SmsSendResult(
             SmsOutcome.INDETERMINATE,
             evidence,
-            "Delivery is indeterminate; do not resend automatically.",
+            "Submission/delivery outcome is unknown; do not resend automatically.",
         )

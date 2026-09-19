@@ -7,6 +7,7 @@
   "profiles": [
     {
       "id": "generic-at",
+      "sms_text": true,
       "name": "Generic AT",
       "shipped_notes": "Use only commands documented for the connected modem. Device-specific functions remain unavailable until a reviewed profile is selected.",
       "user_notes": "",

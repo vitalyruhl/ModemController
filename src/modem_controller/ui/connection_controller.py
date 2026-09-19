@@ -31,7 +31,12 @@ from modem_controller.workflows.connection_search import (
 )
 from modem_controller.workflows.diagnostics import DiagnosticRunner
 from modem_controller.workflows.maintenance import MaintenanceRunner, SequenceRunner
-from modem_controller.workflows.sms import SmsInspector, SmsMessage, SmsSendWorkflow
+from modem_controller.workflows.sms import (
+    SmsInspector,
+    SmsMessage,
+    SmsOutcome,
+    SmsSendWorkflow,
+)
 
 PortFactory = Callable[[], SerialPort]
 
@@ -375,8 +380,10 @@ class SerialConnectionWorker(QObject):
             self.close()
             self.workflow_finished.emit()
 
-    @Slot(str, str)
-    def send_sms(self, recipient: str, body: str) -> None:
+    @Slot(str, str, bool)
+    def send_sms(
+        self, recipient: str, body: str, profile_supported: bool = True
+    ) -> None:
         port = self._port
         if port is None or not port.is_open:
             self.error.emit("No serial connection is open.")
@@ -387,8 +394,12 @@ class SerialConnectionWorker(QObject):
                 self._session(port),
                 completion_timeout=timedelta(seconds=60),
             )
-            workflow.begin(SmsMessage(recipient, body), confirmed=True)
-            while True:
+            result = workflow.begin(
+                SmsMessage(recipient, body),
+                confirmed=True,
+                profile_supported=profile_supported,
+            )
+            while result is None:
                 if self._cancel_requested.is_set():
                     result = workflow.cancel()
                     break
@@ -400,6 +411,11 @@ class SerialConnectionWorker(QObject):
             self.error.emit(str(error))
             result = None
         self.sms_completed.emit(result)
+        if result is None or result.outcome in {
+            SmsOutcome.CANCELLED,
+            SmsOutcome.INDETERMINATE,
+        }:
+            self.close()
         self.workflow_finished.emit()
 
     @Slot(int)
@@ -418,9 +434,16 @@ class SerialConnectionWorker(QObject):
             return
         try:
             session = self._session(port)
-            exchanges = tuple(
-                self._exchange(session, payload, timeout=10) for payload in payloads
-            )
+            results = []
+            for payload in payloads:
+                if self._cancel_requested.is_set():
+                    break
+                exchange = self._exchange(session, payload, timeout=10)
+                results.append(exchange)
+                if exchange.outcome is not ExchangeOutcome.COMPLETED:
+                    self.close()
+                    break
+            exchanges = tuple(results)
         finally:
             self.sms_status_completed.emit(locals().get("exchanges", ()))
             self.workflow_finished.emit()
@@ -574,7 +597,7 @@ class ConnectionController(QObject):
     _search_requested = Signal(object)
     _maintenance_requested = Signal(object, object)
     _sequence_requested = Signal(object, object, object)
-    _sms_requested = Signal(str, str)
+    _sms_requested = Signal(str, str, bool)
     _sms_read_requested = Signal(int)
     _sms_status_requested = Signal()
 
@@ -676,9 +699,11 @@ class ConnectionController(QObject):
         self._cancel_requested.clear()
         self._sequence_requested.emit(command, profile, values)
 
-    def send_sms(self, recipient: str, body: str) -> None:
+    def send_sms(
+        self, recipient: str, body: str, *, profile_supported: bool = True
+    ) -> None:
         self._cancel_requested.clear()
-        self._sms_requested.emit(recipient, body)
+        self._sms_requested.emit(recipient, body, profile_supported)
 
     def read_sms(self, index: int) -> None:
         self._cancel_requested.clear()

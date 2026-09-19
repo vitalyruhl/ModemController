@@ -308,6 +308,7 @@ class DeviceProfile:
     user_notes: str
     commands: tuple[CatalogCommand, ...]
     connection_defaults: dict[str, str] = field(default_factory=dict)
+    sms_text: bool = False
 
     def __post_init__(self) -> None:
         _validate_identifier(self.id, "profile id")
@@ -370,6 +371,7 @@ class DeviceProfile:
             "user_notes": self.user_notes,
             "commands": [command.to_dict() for command in self.commands],
             "connection_defaults": self.connection_defaults,
+            "sms_text": self.sms_text,
         }
 
     @classmethod
@@ -384,6 +386,7 @@ class DeviceProfile:
                 for item in _object_list(data, "commands")
             ),
             connection_defaults=data.get("connection_defaults", {}),
+            sms_text=_optional_bool(data, "sms_text", False),
         )
 
 

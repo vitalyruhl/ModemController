@@ -212,6 +212,7 @@ class MainWindow(QMainWindow):
             self.category_selector.setCurrentText(current)
         self.category_selector.blockSignals(False)
         self._render_commands()
+        self._set_sms_enabled(self._preset_execution_enabled)
 
     def _render_commands(self) -> None:
         while self.command_layout.count():
@@ -579,7 +580,9 @@ class MainWindow(QMainWindow):
 
     def _send_sms(self, recipient: str, body: str) -> None:
         self.set_workflow_active(True)
-        self._controller().send_sms(recipient, body)
+        self._controller().send_sms(
+            recipient, body, profile_supported=self._selected_profile().sms_text
+        )
 
     def _show_sms_result(self, result: SmsSendResult | None) -> None:
         if result is not None:
@@ -595,6 +598,11 @@ class MainWindow(QMainWindow):
             self.terminal.append_info(evidence or exchange.outcome.value)
 
     def _set_sms_enabled(self, enabled: bool) -> None:
+        enabled = (
+            enabled
+            and bool(self.profile_selector.currentData())
+            and self._selected_profile().sms_text
+        )
         self.sms_action.setEnabled(enabled and not self._workflow_active)
         self.sms_dialog.set_available(enabled, self._workflow_active)
 

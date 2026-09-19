@@ -300,7 +300,12 @@ def test_worker_queries_sms_status_with_at_session(qtbot) -> None:
 def test_worker_records_full_sms_wire_payloads_and_responses(qtbot) -> None:
     port = FakePort()
     port.open(SerialSettings(port="COM10"))
-    port.received.extend((b"\r\n> ", b"\r\n+CMGS: 7\r\nOK\r\n"))
+    preflight = (
+        b"+CPIN: READY\r\nOK\r\n",
+        b"+CMGF: 1\r\nOK\r\n",
+        b'+CSCS: "IRA"\r\nOK\r\n',
+    )
+    port.received.extend((*preflight, b"\r\n> ", b"\r\n+CMGS: 7\r\nOK\r\n"))
     worker = SerialConnectionWorker(lambda: port)
     worker._port = port
     transmitted: list[bytes] = []
@@ -310,8 +315,14 @@ def test_worker_records_full_sms_wire_payloads_and_responses(qtbot) -> None:
 
     worker.send_sms("491234567", "evidence text")
 
-    assert transmitted == [b'AT+CMGS="491234567"\r', b"evidence text\x1a"]
-    assert received == [b"\r\n> ", b"\r\n+CMGS: 7\r\nOK\r\n"]
+    assert transmitted == [
+        b"AT+CPIN?\r",
+        b"AT+CMGF?\r",
+        b"AT+CSCS?\r",
+        b'AT+CMGS="491234567"\r',
+        b"evidence text\x1a",
+    ]
+    assert received == [*preflight, b"\r\n> ", b"\r\n+CMGS: 7\r\nOK\r\n"]
 
 
 def test_guided_pin_never_reaches_log_signals_or_result(qtbot) -> None:
