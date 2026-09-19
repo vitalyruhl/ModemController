@@ -136,7 +136,7 @@ class SmsSendWorkflow:
         return self._result(self._session.cancel())
 
     def _check_result(self, exchange: AtExchange) -> SmsSendResult | None:
-        expected = (rb"\+CPIN:\s*READY", rb"\+CMGF:\s*1", rb'\+CSCS:\s*"IRA"')[
+        expected = (rb"\+CPIN:\s*READY", rb"\+CMGF:\s*1", rb'\+CSCS:\s*"(?:IRA|GSM)"')[
             self._preflight_index
         ]
         if (
@@ -150,7 +150,7 @@ class SmsSendWorkflow:
             labels = (
                 "SIM must be present and READY",
                 "SMS mode must already be text mode",
-                "Only the IRA character set is supported",
+                "Select GSM or IRA for this basic-text SMS workflow",
             )
             return SmsSendResult(
                 SmsOutcome.NOT_READY,
@@ -162,7 +162,7 @@ class SmsSendWorkflow:
         if self._preflight_index < 3:
             self._start_check()
         else:
-            # Avoid ambiguous extension characters in the initial sender.
+            # These characters have identical byte values in IRA and GSM's alphabet.
             if self._message is None or not re.fullmatch(
                 r"""[A-Za-z0-9 !"#%&'()*+,\-./:;<=>?]+""", self._message.body
             ):

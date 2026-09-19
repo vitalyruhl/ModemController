@@ -465,7 +465,7 @@ class MainWindow(QMainWindow):
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
         )
-        if answer is not QMessageBox.Yes:
+        if answer != QMessageBox.Yes:
             return
         payload = command.render()
         self.terminal.append_info(
@@ -525,6 +525,8 @@ class MainWindow(QMainWindow):
         controller.received.connect(self._received)
         controller.session_received.connect(self._log_received)
         controller.transmitted.connect(self._log_transmitted)
+        if hasattr(controller, "workflow_transmitted"):
+            controller.workflow_transmitted.connect(self.terminal.append_transmitted)
         if hasattr(controller, "status_lines"):
             controller.status_lines.connect(self.connection_panel.show_lines)
             controller.notice.connect(self.terminal.append_info)
@@ -570,6 +572,7 @@ class MainWindow(QMainWindow):
         self._record_log(self._session_log.record_sent, payload)
 
     def _log_received(self, payload: bytes) -> None:
+        self.terminal.append_received(payload)
         self._record_log(self._session_log.record_received, payload)
 
     def _capture_gap(self, message: str) -> None:
@@ -721,7 +724,7 @@ class MainWindow(QMainWindow):
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
         )
-        if answer is not QMessageBox.Yes:
+        if answer != QMessageBox.Yes:
             return
         values: dict[str, str] = {}
         for parameter in command.parameters:
@@ -768,16 +771,24 @@ class MainWindow(QMainWindow):
         self._controller().read_sms(index)
 
     def _send_sms(self, recipient: str, body: str) -> None:
+        self.sms_dialog.validation_message.setText("Checking SMS prerequisites...")
         self.set_workflow_active(True)
         self._controller().send_sms(
             recipient, body, profile_supported=self._selected_profile().sms_text
         )
 
     def _show_sms_result(self, result: SmsSendResult | None) -> None:
-        if result is not None:
-            self.terminal.append_info(
-                f"SMS: {result.outcome.value}\n{result.next_action}"
+        message = (
+            f"SMS: {result.outcome.value}\n{result.next_action}"
+            if result is not None
+            else (
+                "SMS operation failed. Delivery may be unknown; inspect the terminal. "
+                "No automatic retry."
             )
+        )
+        self.terminal.append_info(message)
+        self.sms_dialog.validation_message.setText(message)
+        self._record_log(self._session_log.record_sms_result, message)
 
     def _show_sms_status(self, exchanges: tuple[object, ...]) -> None:
         for exchange in exchanges:

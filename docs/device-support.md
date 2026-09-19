@@ -8,7 +8,7 @@ device profile without certifying that device's support.
 
 | Profile | Current visible scope | Evidence limit |
 | --- | --- | --- |
-| Generic AT | Standard status queries and explicitly confirmed maintenance; guarded text SMS | Each connected modem must support the queried form. SMS requires fresh SIM READY, text mode and IRA observations. |
+| Generic AT | Standard status queries and explicitly confirmed maintenance; guarded text SMS | Each connected modem must support the queried form. SMS requires fresh SIM READY, text mode and GSM or IRA observations. |
 | MC55i-Q / MC55i-W | AT and ATI | Historical initialization notes are not a reviewed automatic setup sequence. Module and firmware must be identified first. |
 | Quectel BG95-M3, observed 55iQ | Reviewed identity, SIM, registration, operator and signal queries | Observed firmware BG95M3LAR02A03 only; no broader terminal-family or SMS-send acceptance. |
 | TC35 / TC35i | SIM status, registration and signal | Based on the bundled TC35-family AT manual, version 04.00; not proof for other families or all firmware. |
@@ -65,3 +65,25 @@ packet data transfer, wake-up calling, other firmware, or user HIL acceptance.
 
 The user's Phoenix Contact unit marked `23 13 106`, firmware `1.60`, is reserved
 for evaluation in a later minor release. No supported profile is claimed here.
+
+## User SMS and dialing feedback, 2026-09-19
+
+The supplied 2.1.0 log contains text mode (`CMGF: 1`) and `CSCS: "GSM"`, but no
+CMGS submission. Offline reproduction found that native Qt confirmation results
+were compared by object identity, silently discarding Yes. Guided exchanges also
+reached the log without appearing in the shared terminal. Both are corrected in
+2.1.2. Basic text uses the same restricted byte-compatible subset with GSM or IRA;
+no character-set switch or automatic resend is introduced. Recipient delivery is
+still not established by these tests.
+
+The logged dial attempts omitted the voice-call semicolon; one also quoted the
+number. The documented form is `ATD<number>;` without spaces or quotes. The
+existing Generic AT voice template already prepares that form. A bare ERROR from
+the observed attempts does not establish the exact cause or a lack of voice support.
+
+Quectel's [voice application note, sections 1.1, 2.2 and 4.2](https://quectel.com/content/uploads/2024/02/Quectel_BG95BG77BG600L_Series_Voice_Application_Note_V1.0.pdf)
+lists BG95-M3 voice capabilities, with firmware and network prerequisites for
+VoLTE. That family capability is not proof for the observed BG95M3LAR02A03 firmware,
+SIM subscription or current IMS registration. The terminal's Q/W enclosure label
+alone cannot resolve this. No call, firmware update or configuration change was
+performed during this diagnosis.

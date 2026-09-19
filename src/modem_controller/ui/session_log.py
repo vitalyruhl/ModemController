@@ -85,6 +85,11 @@ class SessionLog:
     def record_error(self, message: str) -> None:
         self._write("ERROR", "Sensitive operation failed." if self._secret else message)
 
+    def record_sms_result(self, message: str) -> None:
+        self._write(
+            "SMS", "Sensitive operation result omitted." if self._secret else message
+        )
+
     def record_gap(self, message: str) -> None:
         self._secret = True
         self._write("CAPTURE GAP", message)

@@ -94,6 +94,7 @@ class SerialConnectionWorker(QObject):
     disconnected = Signal()
     received = Signal(bytes)
     transmitted = Signal(bytes)
+    workflow_transmitted = Signal(bytes)
     session_received = Signal(bytes)
     control_bytes_sent = Signal(bytes)
     error = Signal(str)
@@ -390,7 +391,9 @@ class SerialConnectionWorker(QObject):
     ) -> None:
         port = self._workflow_port()
         if port is None:
+            self.sms_completed.emit(None)
             return
+        result = None
         try:
             workflow = SmsSendWorkflow(
                 self._session(port),
@@ -409,16 +412,16 @@ class SerialConnectionWorker(QObject):
                 if result is not None:
                     break
                 QThread.msleep(10)
-        except ValueError as error:
+        except (ValueError, SerialPortError, AtSessionError) as error:
             self.error.emit(str(error))
-            result = None
-        self.sms_completed.emit(result)
-        if result is None or result.outcome in {
-            SmsOutcome.CANCELLED,
-            SmsOutcome.INDETERMINATE,
-        }:
-            self.close()
-        self.workflow_finished.emit()
+        finally:
+            self.sms_completed.emit(result)
+            if result is None or result.outcome in {
+                SmsOutcome.CANCELLED,
+                SmsOutcome.INDETERMINATE,
+            }:
+                self.close()
+            self.workflow_finished.emit()
 
     @Slot(int)
     def read_sms(self, index: int) -> None:
@@ -468,12 +471,16 @@ class SerialConnectionWorker(QObject):
         return AtSession(
             _ObservedSessionTransport(
                 port,
-                transmitted=self.transmitted.emit,
+                transmitted=self._session_transmitted,
                 received=self.session_received.emit,
                 suppress_capture=self._secret,
             ),
             clock=monotonic,
         )
+
+    def _session_transmitted(self, payload: bytes) -> None:
+        self.transmitted.emit(payload)
+        self.workflow_transmitted.emit(payload)
 
     def _exchange(
         self,
@@ -584,6 +591,7 @@ class ConnectionController(QObject):
     disconnected = Signal()
     received = Signal(bytes)
     transmitted = Signal(bytes)
+    workflow_transmitted = Signal(bytes)
     session_received = Signal(bytes)
     control_bytes_sent = Signal(bytes)
     error = Signal(str)
@@ -651,6 +659,7 @@ class ConnectionController(QObject):
         self._worker.disconnected.connect(self._relay_disconnected)
         self._worker.received.connect(self._relay_received)
         self._worker.transmitted.connect(self.transmitted)
+        self._worker.workflow_transmitted.connect(self.workflow_transmitted)
         self._worker.session_received.connect(self.session_received)
         self._worker.control_bytes_sent.connect(self.control_bytes_sent)
         self._worker.error.connect(self._relay_error)

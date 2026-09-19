@@ -112,6 +112,13 @@ acceptance of a milestone. Subsequent 2.1.0 changes require renewed user testing
 
 ### Outstanding gates
 
+SMS acceptance is an explicit integration blocker as of the user's 2026-09-19
+2.1.0 feedback. Version 2.1.2 corrects confirmation handling, visible guided
+traffic and the basic GSM-character-set preflight. Before merging, the user must
+confirm a real message arrives at the recipient and that terminal/log evidence
+is understandable. Offline fake-modem acknowledgement is not delivery evidence.
+Other device/field and clean-target tests remain separately open.
+
 | Gate | Current evidence / required action |
 | --- | --- |
 | Whole offline integration | 256 tests passed after review corrections; lint, formatting and wheel/sdist build passed |

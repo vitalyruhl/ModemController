@@ -43,6 +43,7 @@ class SmsDialog(QDialog):
         self.read_button = QPushButton("Read message", self)
         self.send_button = QPushButton("Send message", self)
         self.validation_message = QLabel(self)
+        self.validation_message.setWordWrap(True)
         self.availability_message = QLabel(self)
         self.availability_message.setWordWrap(True)
 
@@ -54,7 +55,7 @@ class SmsDialog(QDialog):
         form.addRow("Recipient", self.recipient)
         form.addRow("Message", self.body)
         hint = QLabel(
-            "Sending requires SIM READY, text mode and IRA. "
+            "Sending requires SIM READY, text mode and GSM or IRA. "
             "Use basic ASCII text; no automatic mode changes.",
             self,
         )
@@ -85,7 +86,7 @@ class SmsDialog(QDialog):
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
         )
-        if answer is QMessageBox.Yes:
+        if answer == QMessageBox.Yes:
             self.read_requested.emit(self.index.value())
 
     def _request_send(self) -> None:
@@ -101,6 +102,6 @@ class SmsDialog(QDialog):
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
         )
-        if answer is QMessageBox.Yes:
+        if answer == QMessageBox.Yes:
             self.validation_message.clear()
             self.send_requested.emit(message.recipient, message.body)

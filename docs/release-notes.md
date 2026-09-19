@@ -1,5 +1,15 @@
 # Release notes
 
+## 2.1.2 - SMS confirmation and visible workflow traffic
+
+Native Qt Yes results are compared by value so confirmed SMS sends/reads and
+maintenance/control-byte actions start correctly. Guided TX/RX now appears in the
+shared terminal as well as the selected session log, preserving secret suppression.
+SMS results and preflight failures appear in the SMS dialog, terminal and log.
+Basic text SMS accepts the common supported character subset with either GSM or
+IRA; other encodings remain blocked and no modem configuration changes implicitly.
+Successful modem submission is still distinguished from recipient delivery.
+
 ## 2.1.1 - portable documentation completeness
 
 The portable root includes the main README with working links into `help/`.
