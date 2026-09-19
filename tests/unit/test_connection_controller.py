@@ -227,9 +227,13 @@ def test_worker_runs_read_only_diagnostics_through_the_at_session(qtbot) -> None
 
 
 def test_worker_connection_search_requires_repeated_at_responses(qtbot) -> None:
-    ports = [FakePort(), FakePort()]
-    for port in ports:
-        port.received.append(b"\r\nOK\r\n")
+    class RespondingPort(FakePort):
+        def write(self, payload):
+            written = super().write(payload)
+            self.received.append(b"\r\nOK\r\n")
+            return written
+
+    ports = [RespondingPort(), RespondingPort()]
     worker = SerialConnectionWorker(lambda: ports.pop(0))
     completed: list[object] = []
     worker.search_completed.connect(completed.append)
@@ -240,6 +244,21 @@ def test_worker_connection_search_requires_repeated_at_responses(qtbot) -> None:
     assert completed[0].selected.settings.baud_rate == 9600
     assert len(completed[0].attempts) == 1
     assert completed[0].attempts[0].outcome is SearchOutcome.CONFIRMED
+
+
+def test_search_probe_drains_old_ok_before_transmitting(qtbot):
+    port = FakePort()
+    port.received.append(b"\r\nOK\r\n")
+    worker = SerialConnectionWorker(lambda: port)
+    old_bytes = []
+    worker.session_received.connect(old_bytes.append)
+    result = worker._probe_settings(
+        SerialSettings(port="COM10", response_timeout=0.2), b"AT\n"
+    )
+    assert result.final_result is None
+    assert old_bytes == [b"\r\nOK\r\n"]
+    assert port.writes == [(b"AT\n", False)]
+    assert not port.is_open
 
 
 def test_worker_runs_confirmed_maintenance_once_then_closes(qtbot) -> None:

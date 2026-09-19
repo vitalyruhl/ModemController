@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from importlib.resources import files
 from typing import Any
@@ -307,9 +307,17 @@ class DeviceProfile:
     shipped_notes: str
     user_notes: str
     commands: tuple[CatalogCommand, ...]
+    connection_defaults: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         _validate_identifier(self.id, "profile id")
+        if not isinstance(self.connection_defaults, dict) or not all(
+            isinstance(key, str) and isinstance(value, str)
+            for key, value in self.connection_defaults.items()
+        ):
+            raise CatalogValidationError(
+                "profile connection defaults must be text fields"
+            )
         if not self.name.strip() or not self.shipped_notes.strip():
             raise CatalogValidationError("profile name and shipped notes are required")
         command_ids = [command.id for command in self.commands]
@@ -361,6 +369,7 @@ class DeviceProfile:
             "shipped_notes": self.shipped_notes,
             "user_notes": self.user_notes,
             "commands": [command.to_dict() for command in self.commands],
+            "connection_defaults": self.connection_defaults,
         }
 
     @classmethod
@@ -374,6 +383,7 @@ class DeviceProfile:
                 CatalogCommand.from_dict(item)
                 for item in _object_list(data, "commands")
             ),
+            connection_defaults=data.get("connection_defaults", {}),
         )
 
 

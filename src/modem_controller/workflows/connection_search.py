@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
+from itertools import product
+from time import monotonic
 
 from modem_controller.protocol.at_session import AtExchange, ExchangeOutcome
-from modem_controller.transport.serial_port import SerialSettings
+from modem_controller.transport.serial_port import (
+    ControlLinePolicy,
+    FlowControl,
+    Parity,
+    SerialSettings,
+)
 
 
 class SearchPhase(str, Enum):
@@ -56,6 +63,34 @@ Apply = Callable[[SerialSettings], None]
 Save = Callable[[SerialSettings], None]
 
 
+def settings_from_preferences(
+    base: SerialSettings, preferences: dict[str, str]
+) -> SerialSettings:
+    flows = {
+        "None": FlowControl.NONE,
+        "RTS/CTS": FlowControl.RTS_CTS,
+        "DSR/DTR": FlowControl.DSR_DTR,
+    }
+    controls = {"Driver default": None, "On": True, "Off": False}
+    flow = flows.get(preferences.get("flow_control"), base.flow_control)
+    return replace(
+        base,
+        baud_rate=int(preferences.get("baud_rate", base.baud_rate)),
+        data_bits=int(preferences.get("data_bits", base.data_bits)),
+        parity=Parity(preferences.get("parity", base.parity.value)),
+        stop_bits=float(preferences.get("stop_bits", base.stop_bits)),
+        flow_control=flow,
+        control_lines=ControlLinePolicy(
+            None
+            if flow is FlowControl.DSR_DTR
+            else controls.get(preferences.get("dtr"), base.control_lines.dtr),
+            None
+            if flow is FlowControl.RTS_CTS
+            else controls.get(preferences.get("rts"), base.control_lines.rts),
+        ),
+    )
+
+
 class ConnectionSearchRunner:
     """Evaluate supplied serial settings without reconfiguring the modem itself."""
 
@@ -66,28 +101,84 @@ class ConnectionSearchRunner:
         cancelled: Cancelled = lambda: False,
         terminator: bytes = b"\r",
         confirmations_required: int = 2,
+        clock=monotonic,
+        total_timeout: float = 120.0,
+        progress=lambda index, total, candidate: None,
     ) -> None:
         if terminator not in {b"\r", b"\n", b"\r\n"}:
             raise ValueError("terminator must be CR, LF, or CRLF")
         if confirmations_required < 2:
             raise ValueError("at least two confirmations are required")
+        if not 0 < total_timeout <= 300:
+            raise ValueError("search budget must be within 300 seconds")
+        self._clock = clock
+        self._total_timeout = total_timeout
+        self._progress = progress
         self._probe = probe
         self._cancelled = cancelled
         self._command = b"AT" + terminator
         self._confirmations_required = confirmations_required
 
     @staticmethod
-    def quick_candidates(port: str) -> tuple[SearchCandidate, ...]:
+    def quick_candidates(
+        port: str, *, preferred=(), base=None
+    ) -> tuple[SearchCandidate, ...]:
+        baseline = base or SerialSettings(port=port)
+        settings = (
+            *preferred,
+            *(
+                replace(baseline, port=port, baud_rate=rate)
+                for rate in (9600, 19200, 38400, 57600, 115200)
+            ),
+        )
+        return tuple(
+            SearchCandidate(item, SearchPhase.QUICK)
+            for item in dict.fromkeys(settings)
+            if item.port == port
+        )
+
+    @staticmethod
+    def extended_candidates(
+        base: SerialSettings,
+        *,
+        baud_rates=(9600, 19200, 38400, 57600, 115200),
+        data_bits=(8,),
+        parities=(Parity.NONE,),
+        stop_bits=(1,),
+        flow_controls=(FlowControl.NONE,),
+    ) -> tuple[SearchCandidate, ...]:
+        options = (baud_rates, data_bits, parities, stop_bits, flow_controls)
+        count = 1
+        for option in options:
+            count *= len(option)
+        if not 1 <= count <= 60:
+            raise ValueError("select between 1 and 60 extended combinations")
         return tuple(
             SearchCandidate(
-                SerialSettings(port=port, baud_rate=baud_rate), SearchPhase.QUICK
+                replace(
+                    base,
+                    baud_rate=rate,
+                    data_bits=bits,
+                    parity=parity,
+                    stop_bits=stops,
+                    flow_control=flow,
+                    control_lines=ControlLinePolicy(
+                        None if flow is FlowControl.DSR_DTR else base.control_lines.dtr,
+                        None if flow is FlowControl.RTS_CTS else base.control_lines.rts,
+                    ),
+                ),
+                SearchPhase.EXTENDED,
             )
-            for baud_rate in (9600, 19200, 38400, 57600, 115200)
+            for rate, bits, parity, stops, flow in product(*options)
         )
 
     def run(self, candidates: tuple[SearchCandidate, ...]) -> ConnectionSearchResult:
+        if len(candidates) > 70:
+            raise ValueError("search candidate limit exceeded")
+        deadline = self._clock() + self._total_timeout
         attempts: list[SearchAttempt] = []
-        for candidate in candidates:
+        for index, candidate in enumerate(candidates):
+            self._progress(index + 1, len(candidates), candidate)
             exchanges: list[AtExchange] = []
             for _ in range(self._confirmations_required):
                 if self._cancelled():
@@ -100,7 +191,44 @@ class ConnectionSearchRunner:
                         )
                     )
                     return ConnectionSearchResult(tuple(attempts), None)
-                exchange = self._probe(candidate.settings, self._command)
+                remaining = deadline - self._clock()
+                if remaining <= 0:
+                    attempts.append(
+                        SearchAttempt(
+                            candidate,
+                            tuple(exchanges),
+                            SearchOutcome.INCONCLUSIVE,
+                            "Search total deadline expired.",
+                        )
+                    )
+                    return ConnectionSearchResult(tuple(attempts), None)
+                settings = replace(
+                    candidate.settings,
+                    response_timeout=min(
+                        candidate.settings.response_timeout, remaining
+                    ),
+                )
+                exchange = self._probe(settings, self._command)
+                if self._cancelled() or exchange.outcome is ExchangeOutcome.CANCELLED:
+                    attempts.append(
+                        SearchAttempt(
+                            candidate,
+                            tuple((*exchanges, exchange)),
+                            SearchOutcome.CANCELLED,
+                            "Search cancelled; port is released.",
+                        )
+                    )
+                    return ConnectionSearchResult(tuple(attempts), None)
+                if self._clock() > deadline:
+                    attempts.append(
+                        SearchAttempt(
+                            candidate,
+                            tuple((*exchanges, exchange)),
+                            SearchOutcome.INCONCLUSIVE,
+                            "Response exceeded the total deadline.",
+                        )
+                    )
+                    return ConnectionSearchResult(tuple(attempts), None)
                 exchanges.append(exchange)
                 if exchange.outcome is ExchangeOutcome.DISCONNECTED:
                     attempts.append(

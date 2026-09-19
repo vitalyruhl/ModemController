@@ -17,7 +17,7 @@ from modem_controller.protocol.at_session import (
     AtSessionError,
     ExchangeOutcome,
 )
-from modem_controller.transport.capture import CaptureSnapshot
+from modem_controller.transport.capture import CaptureBuffer, CaptureSnapshot
 from modem_controller.transport.privacy import contains_secret_input
 from modem_controller.transport.serial_port import (
     FlowControl,
@@ -281,20 +281,36 @@ class SerialConnectionWorker(QObject):
             self.diagnostics_completed.emit(locals().get("results", ()))
             self.workflow_finished.emit()
 
-    @Slot(str)
-    def search_settings(self, port_name: str) -> None:
+    @Slot(object)
+    def search_settings(self, request) -> None:
         if self._port is not None and self._port.is_open:
             self.error.emit(
                 "Settings can only be searched while no connection is open."
             )
             self.workflow_finished.emit()
             return
-        self._cancel_requested.clear()
+        candidates, terminator = (
+            (ConnectionSearchRunner.quick_candidates(request), b"\r")
+            if isinstance(request, str)
+            else request
+        )
+        self._search_capture = CaptureBuffer(
+            max_records=10000, max_bytes=4 * 1024 * 1024
+        )
         try:
             result = ConnectionSearchRunner(
-                self._probe_settings, cancelled=self._cancel_requested.is_set
-            ).run(ConnectionSearchRunner.quick_candidates(port_name))
+                self._probe_settings,
+                cancelled=self._cancel_requested.is_set,
+                terminator=terminator,
+                progress=lambda index, total, candidate: self.notice.emit(
+                    f"Search {index}/{total}: {_format_settings(candidate.settings)}"
+                ),
+            ).run(candidates)
         finally:
+            self._last_capture = self._search_capture.evidence_snapshot()
+            self.notice.emit(
+                "Search finished; port is disconnected. No modem setting was saved."
+            )
             self.search_completed.emit(locals().get("result", _empty_search_result()))
             self.workflow_finished.emit()
 
@@ -471,7 +487,44 @@ class SerialConnectionWorker(QObject):
         started_at = monotonic()
         try:
             port.open(settings)
-            return self._exchange(self._session(port), payload, timeout=2)
+            self._settings = settings
+            deadline = started_at + settings.response_timeout
+            quiet_since = monotonic()
+            settle_until = min(deadline, quiet_since + 0.5)
+            while monotonic() < settle_until:
+                if self._cancel_requested.is_set():
+                    return AtExchange(
+                        payload,
+                        started_at,
+                        deadline,
+                        (),
+                        (),
+                        (),
+                        (),
+                        False,
+                        ExchangeOutcome.CANCELLED,
+                    )
+                data = port.read_available()
+                if data:
+                    self.session_received.emit(data)
+                    quiet_since = monotonic()
+                if monotonic() - quiet_since >= 0.1:
+                    break
+                self._cancel_requested.wait(0.01)
+            remaining = deadline - monotonic()
+            if remaining <= 0 or monotonic() - quiet_since < 0.1:
+                return AtExchange(
+                    payload,
+                    started_at,
+                    deadline,
+                    (),
+                    (),
+                    (),
+                    (),
+                    False,
+                    ExchangeOutcome.TIMED_OUT,
+                )
+            return self._exchange(self._session(port), payload, timeout=remaining)
         except SerialPortError:
             return AtExchange(
                 payload,
@@ -485,6 +538,8 @@ class SerialConnectionWorker(QObject):
                 ExchangeOutcome.DISCONNECTED,
             )
         finally:
+            if hasattr(port, "capture") and hasattr(self, "_search_capture"):
+                self._search_capture.extend_snapshot(port.capture.evidence_snapshot())
             port.close()
 
 
@@ -516,7 +571,7 @@ class ConnectionController(QObject):
     _send_requested = Signal(bytes, bool)
     _control_bytes_requested = Signal(bytes)
     _diagnostics_requested = Signal(object)
-    _search_requested = Signal(str)
+    _search_requested = Signal(object)
     _maintenance_requested = Signal(object, object)
     _sequence_requested = Signal(object, object, object)
     _sms_requested = Signal(str, str)
@@ -610,9 +665,9 @@ class ConnectionController(QObject):
     def cancel_workflow(self) -> None:
         self._cancel_requested.set()
 
-    def search_settings(self, port_name: str) -> None:
+    def search_settings(self, request) -> None:
         self._cancel_requested.clear()
-        self._search_requested.emit(port_name)
+        self._search_requested.emit(request)
 
     def run_maintenance(self, command: CatalogCommand, values: dict[str, str]) -> None:
         self._maintenance_requested.emit(command, values)

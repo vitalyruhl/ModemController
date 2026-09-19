@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
+from time import monotonic
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QActionGroup, QCloseEvent
@@ -45,10 +46,14 @@ from modem_controller.ui.catalog_editor import CatalogEditor
 from modem_controller.ui.connection_controller import ConnectionController
 from modem_controller.ui.connection_panel import ConnectionPanel
 from modem_controller.ui.report_dialog import ReportDialog
+from modem_controller.ui.search_dialog import SearchOptionsDialog
 from modem_controller.ui.session_log import LogMode, LogWriteError, SessionLog
 from modem_controller.ui.sms_dialog import SmsDialog
 from modem_controller.ui.terminal_view import TerminalWorkspace
-from modem_controller.workflows.connection_search import ConnectionSearchResult
+from modem_controller.workflows.connection_search import (
+    ConnectionSearchResult,
+    settings_from_preferences,
+)
 from modem_controller.workflows.diagnostics import DiagnosticResult
 from modem_controller.workflows.maintenance import (
     MaintenanceResult,
@@ -90,6 +95,8 @@ class MainWindow(QMainWindow):
         self._connection_controller = connection_controller
         self._settings_store = settings_store
         self._settings = Settings()
+        self._transient_connection = None
+        self._pending_connection_preferences = None
         self._session_log = SessionLog()
         self._workflow_active = False
         self._preset_execution_enabled = False
@@ -299,6 +306,7 @@ class MainWindow(QMainWindow):
             _format_connection_settings(settings),
         )
         self.connection_panel.set_connecting()
+        self._pending_connection_preferences = self.connection_panel.preferences()
         self._controller().open(settings)
 
     def _disconnect(self) -> None:
@@ -355,6 +363,12 @@ class MainWindow(QMainWindow):
         self.set_preset_execution_enabled(True)
         self._set_sms_enabled(True)
         self._record_log(self._session_log.record_connected, settings)
+        if self._pending_connection_preferences is not None:
+            self._settings = replace(
+                self._settings,
+                last_successful_connection=self._pending_connection_preferences,
+            )
+            self._save_preferences()
 
     def _disconnected(self) -> None:
         self.connection_panel.set_connected(False)
@@ -386,34 +400,82 @@ class MainWindow(QMainWindow):
             self._connection_controller.cancel_workflow()
 
     def _find_settings(self) -> None:
-        port = self.connection_panel.port_selector.currentText()
-        if port == "No port":
-            self.connection_panel.show_error("Select a COM port first.")
+        try:
+            base = self.connection_panel.selected_settings()
+            preferred = []
+            last = self._settings.last_successful_connection
+            if last.get("port") == base.port:
+                preferred.append(settings_from_preferences(base, last))
+            defaults = self._selected_profile().connection_defaults
+            if defaults:
+                preferred.append(settings_from_preferences(base, defaults))
+            if self.terminal.selected_terminator not in (b"\r", b"\n", b"\r\n"):
+                raise ValueError("Choose CR, LF or CRLF before searching.")
+        except (ValueError, KeyError) as error:
+            self.terminal.append_info(str(error))
+            return
+        dialog = SearchOptionsDialog(base, tuple(preferred), self)
+        if not dialog.exec():
             return
         self.set_workflow_active(True)
-        self._controller().search_settings(port)
+        self._controller().search_settings(
+            (dialog.candidates, self.terminal.selected_terminator)
+        )
 
     def _show_search_result(self, result: ConnectionSearchResult) -> None:
         selected = result.selected
         if selected is None:
-            self.connection_panel.show_error(
-                "No repeatedly confirmed settings were found."
+            self.terminal.append_info(
+                "Search cancelled or inconclusive. No repeated OK replies. "
+                "Check data mode, sleep, reply format, wiring and selected scope. "
+                "The port is disconnected."
             )
             return
+        observed = monotonic()
         settings = selected.settings
-        answer = QMessageBox.question(
-            self,
-            "Settings found",
-            (
-                f"{settings.port} at {settings.baud_rate} Bd was confirmed twice. "
-                "Apply and save these settings?"
-            ),
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.Yes,
+        prompt = QMessageBox(self)
+        prompt.setWindowTitle("Working settings found")
+        prompt.setText(
+            f"{_format_connection_settings(settings)}\n"
+            "Two separate AT replies ended with OK. "
+            "Autobaud may accept multiple rates; flow control is not fully proven. "
+            "Use now without saving, or save these host settings as profile defaults. "
+            "No modem setting is written."
         )
-        if answer is QMessageBox.Yes:
-            self.connection_panel.apply_settings(settings)
-            self._save_preferences()
+        use = prompt.addButton("Use connection", QMessageBox.AcceptRole)
+        save = prompt.addButton("Save profile", QMessageBox.ActionRole)
+        prompt.addButton(QMessageBox.Cancel)
+        prompt.exec()
+        if prompt.clickedButton() not in (use, save):
+            return
+        if monotonic() - observed > 60:
+            self.terminal.append_info(
+                "Search evidence expired; search again before using or saving."
+            )
+            return
+        previous = self.connection_panel.preferences()
+        self.connection_panel.apply_settings(settings)
+        if prompt.clickedButton() is use:
+            self._transient_connection = previous
+            self._connect()
+        else:
+            self._transient_connection = None
+            profile = self._selected_profile()
+            defaults = {
+                key: value
+                for key, value in self.connection_panel.preferences().items()
+                if key != "port"
+            }
+            profile = replace(profile, connection_defaults=defaults)
+            self.apply_catalog(
+                replace(
+                    self._catalog,
+                    profiles=tuple(
+                        profile if p.id == profile.id else p
+                        for p in self._catalog.profiles
+                    ),
+                )
+            )
 
     def _request_sequence(self, command: CatalogCommand) -> None:
         profile = self._selected_profile()
@@ -753,9 +815,10 @@ class MainWindow(QMainWindow):
             selected_profile=self.profile_selector.currentData(),
             selected_category=self.category_selector.currentText(),
             connection={
-                **self.connection_panel.preferences(),
+                **(self._transient_connection or self.connection_panel.preferences()),
                 **self.terminal.preferences(),
             },
+            last_successful_connection=self._settings.last_successful_connection,
             last_directories=self._settings.last_directories,
             favorites=self._settings.favorites,
             profile_notes={p.id: p.user_notes for p in self._catalog.profiles},

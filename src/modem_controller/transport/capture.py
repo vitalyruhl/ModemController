@@ -148,6 +148,14 @@ class CaptureBuffer:
             self._sensitive_bytes,
         )
 
+    def extend_snapshot(self, snapshot: CaptureSnapshot) -> None:
+        for record in snapshot.records:
+            self.append(record)
+        self._dropped_records += snapshot.dropped_records
+        self._dropped_bytes += snapshot.dropped_bytes
+        self._sensitive_gaps += snapshot.sensitive_gaps
+        self._sensitive_bytes += snapshot.sensitive_bytes
+
     def clear(self) -> None:
         self._records.clear()
         self._stored_bytes = 0

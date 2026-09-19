@@ -145,6 +145,8 @@ class ConnectionPanel(QWidget):
         self.disconnect_button.setEnabled(connected)
         self.diagnostics_button.setEnabled(connected)
         self.apply_lines.setEnabled(connected)
+        if not connected:
+            self.line_status.setText("CTS / DSR / RI / CD: unavailable")
 
     def selected_lines(self) -> ControlLinePolicy:
         states = {"Driver default": None, "On": True, "Off": False}
@@ -235,6 +237,14 @@ class ConnectionPanel(QWidget):
                 "data_bits": str(settings.data_bits),
                 "parity": settings.parity.value,
                 "stop_bits": f"{settings.stop_bits:g}",
+                "deadline_ms": str(int(settings.response_timeout * 1000)),
+                "pacing_ms": str(int(settings.inter_byte_delay * 1000)),
+                "dtr": {None: "Driver default", True: "On", False: "Off"}[
+                    settings.control_lines.dtr
+                ],
+                "rts": {None: "Driver default", True: "On", False: "Off"}[
+                    settings.control_lines.rts
+                ],
                 "flow_control": {
                     FlowControl.NONE: "None",
                     FlowControl.RTS_CTS: "RTS/CTS",

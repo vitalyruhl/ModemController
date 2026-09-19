@@ -60,3 +60,17 @@ def test_window_restores_explicit_file_logging_preferences(qtbot, tmp_path) -> N
     assert window.verbose_logging_action.isChecked()
     assert window._session_log.path == log_path
     assert "LOGGING enabled mode=verbose" in log_path.read_text(encoding="utf-8")
+
+
+def test_transient_search_connection_is_not_persisted_as_selected_settings(
+    qtbot, tmp_path
+):
+    store = SettingsStore(tmp_path)
+    window = MainWindow(port_provider=lambda: ["COM10"], settings_store=store)
+    qtbot.addWidget(window)
+    window.connection_panel.baud_rate.setCurrentText("19200")
+    window._transient_connection = window.connection_panel.preferences()
+    window.connection_panel.baud_rate.setCurrentText("9600")
+    assert window._save_preferences()
+    assert window.connection_panel.selected_settings().baud_rate == 9600
+    assert store.load().settings.connection["baud_rate"] == "19200"

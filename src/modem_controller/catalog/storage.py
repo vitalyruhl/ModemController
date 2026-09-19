@@ -36,6 +36,7 @@ class Settings:
     selected_profile: str = "generic-at"
     selected_category: str = "Status"
     connection: dict[str, str] = field(default_factory=dict)
+    last_successful_connection: dict[str, str] = field(default_factory=dict)
     last_directories: dict[str, str] = field(default_factory=dict)
     favorites: tuple[str, ...] = ()
     profile_notes: dict[str, str] = field(default_factory=dict)
@@ -62,6 +63,9 @@ class Settings:
             selected_profile=_string(data, "selected_profile", "generic-at"),
             selected_category=_string(data, "selected_category", "Status"),
             connection=connection,
+            last_successful_connection=_string_mapping(
+                data, "last_successful_connection"
+            ),
             last_directories=_string_mapping(data, "last_directories"),
             favorites=tuple(_string_list(data, "favorites")),
             profile_notes=_string_mapping(data, "profile_notes"),
@@ -108,6 +112,7 @@ class SettingsStore:
 
     def save(self, settings: Settings) -> None:
         _reject_sensitive_values(settings.connection)
+        _reject_sensitive_values(settings.last_successful_connection)
         self.save_raw(json.dumps(settings.to_dict(), indent=2, sort_keys=True) + "\n")
 
     def save_raw(self, payload: str) -> None:
@@ -330,6 +335,7 @@ def validate_persisted_catalog(catalog: CommandCatalog) -> None:
     if not catalog.profiles:
         raise CatalogValidationError("At least one profile is required")
     for profile in catalog.profiles:
+        _reject_sensitive_values(profile.connection_defaults)
         for command in profile.commands:
             text = command.payload or ""
             payload = (
