@@ -7,6 +7,10 @@ the independent choice in JSON. Commands can be prepared in the AT/hex input or
 executed through their existing reviewed, confirmed path. Older configurations
 keep their defaults; unverified commands and sensitive workflows retain their gates.
 
+Resizing the editor now expands its command list and editable content. In the main
+window, categories and commands share additional vertical space at a 1:2 ratio;
+buttons keep consistent spacing and remain aligned at the top.
+
 ## 2.0.1 - desktop feedback corrections
 
 The window title shows only the product version. Terminal output continues

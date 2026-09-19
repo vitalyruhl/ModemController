@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSplitter,
     QTableWidget,
     QTableWidgetItem,
@@ -75,9 +76,9 @@ class CatalogEditor(QWidget):
         self.category = QLineEdit(self)
         self.payload = QLineEdit(self)
         self.help_text = QPlainTextEdit(self)
-        self.help_text.setMaximumHeight(65)
+        self.help_text.setMinimumHeight(65)
         self.steps = QPlainTextEdit(self)
-        self.steps.setMaximumHeight(90)
+        self.steps.setMinimumHeight(90)
         self.steps.setPlaceholderText(
             "JSON steps: command_id, expected_contains, timeout_seconds, delay_seconds"
         )
@@ -100,7 +101,7 @@ class CatalogEditor(QWidget):
             "Review and workflow confirmations still apply."
         )
         self.notes = QPlainTextEdit(self)
-        self.notes.setMaximumHeight(65)
+        self.notes.setMinimumHeight(65)
         self.shipped_notes = QLabel(self)
         self.shipped_notes.setWordWrap(True)
         self.parameters = QTableWidget(0, 5, self)
@@ -110,6 +111,7 @@ class CatalogEditor(QWidget):
         self.parameters.setMaximumHeight(110)
         self.message = QLabel(self)
         self.message.setWordWrap(True)
+        self.message.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         form = QFormLayout()
         for name, widget in (
             ("Name", self.label),
@@ -174,6 +176,7 @@ class CatalogEditor(QWidget):
         self.selection_hint = QLabel(
             "Choose a command in the list to edit its fields.", self
         )
+        self.selection_hint.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         layout.addWidget(self.selection_hint)
         content = QWidget(self)
         content.setLayout(form)
@@ -184,7 +187,7 @@ class CatalogEditor(QWidget):
         splitter.addWidget(self.command_selector)
         splitter.addWidget(self.field_scroll)
         splitter.setSizes([220, 600])
-        layout.addWidget(splitter)
+        layout.addWidget(splitter, 1)
         layout.addWidget(self.save_button)
         discard = QPushButton("Discard field changes", self)
         discard.clicked.connect(self._load_profile)
