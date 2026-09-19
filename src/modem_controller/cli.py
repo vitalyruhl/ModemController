@@ -6,7 +6,6 @@ import argparse
 import sys
 import time
 from datetime import timedelta
-from importlib.metadata import version
 from pathlib import Path
 from queue import Empty, Full, Queue
 from threading import Event, Thread
@@ -20,6 +19,7 @@ from modem_controller.transport.serial_port import (
     SerialSettings,
 )
 from modem_controller.ui.session_log import LogMode, SessionLog
+from modem_controller.versioning import version_label
 
 TOKENS = {
     "<CR>": b"\r",
@@ -79,9 +79,7 @@ def _normalize(argv):
 
 def _parser():
     parser = argparse.ArgumentParser(description=__doc__, exit_on_error=False)
-    parser.add_argument(
-        "--version", action="version", version=version("modem-controller-rs232")
-    )
+    parser.add_argument("--version", action="version", version=version_label())
     parser.add_argument("-c", "--connect")
     parser.add_argument("--open", action="store_true")
     parser.add_argument("--baud", type=int, default=115200)

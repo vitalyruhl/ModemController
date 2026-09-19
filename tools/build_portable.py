@@ -13,6 +13,7 @@ from pathlib import Path
 
 from modem_controller.catalog.portable import seed_catalog_files
 from modem_controller.catalog.storage import Settings, SettingsStore
+from modem_controller.versioning import build_info, product_version
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DIST_DIRECTORY = PROJECT_ROOT / "dist"
@@ -42,6 +43,12 @@ def build_command(
         + ":modem_controller/catalog/data",
         "--copy-metadata",
         "modem-controller-rs232",
+        "--add-data",
+        str(BUILD_DIRECTORY / "_version.json") + ":modem_controller",
+        "--add-data",
+        str(BUILD_DIRECTORY / "_build.json") + ":modem_controller",
+        "--version-file",
+        str(BUILD_DIRECTORY / "windows-version.txt"),
         "--distpath",
         str(destination),
         "--workpath",
@@ -78,6 +85,25 @@ def audit_bundle(bundle: Path) -> None:
 
 
 def build() -> Path:
+    info = build_info()
+    BUILD_DIRECTORY.mkdir(parents=True, exist_ok=True)
+    (BUILD_DIRECTORY / "_version.json").write_bytes(
+        (PROJECT_ROOT / "version.json").read_bytes()
+    )
+    (BUILD_DIRECTORY / "_build.json").write_text(
+        json.dumps(info, indent=2), encoding="utf-8"
+    )
+    numeric = (*map(int, product_version().split(".")), 0)
+    (BUILD_DIRECTORY / "windows-version.txt").write_text(
+        f"VSVersionInfo(ffi=FixedFileInfo(filevers={numeric!r}, prodvers={numeric!r}, "
+        "mask=0x3f, flags=0, OS=0x40004, fileType=1, subtype=0, date=(0,0)), "
+        "kids=[StringFileInfo([StringTable('040904B0', ["
+        f"StringStruct('FileVersion', '{product_version()}'), "
+        f"StringStruct('ProductVersion', '{product_version()}'), "
+        "StringStruct('ProductName', 'Modem Controller')])]), "
+        "VarFileInfo([VarStruct('Translation', [1033,1200])])])",
+        encoding="utf-8",
+    )
     stage = BUILD_DIRECTORY / ("stage-" + uuid.uuid4().hex)
     for console in (False, True):
         subprocess.run(
@@ -89,6 +115,9 @@ def build() -> Path:
     shutil.copy2(stage / "ModemConsole" / "ModemConsole.exe", bundle)
     shutil.copytree(stage / "ModemConsole" / "_console", bundle / "_console")
     seed_catalog_files(bundle)
+    (bundle / "build-info.json").write_text(
+        json.dumps(info, indent=2) + "\n", encoding="utf-8"
+    )
     SettingsStore(bundle).save(Settings())
     shutil.copy2(PROJECT_ROOT / "LICENSE", bundle / "LICENSE.txt")
     help_directory = bundle / "help"
@@ -100,6 +129,8 @@ def build() -> Path:
         "device-support.md",
         "portable-build.md",
         "third-party-notices.md",
+        "versioning.md",
+        "release-notes.md",
     ):
         shutil.copy2(PROJECT_ROOT / "docs" / name, help_directory / name)
     shutil.copytree(PROJECT_ROOT / "docs" / "licenses", bundle / "licenses")
@@ -120,7 +151,10 @@ def build() -> Path:
     (bundle / "contents-sha256.json").write_text(
         json.dumps(contents, indent=2) + "\n", encoding="utf-8"
     )
-    name = BUNDLE_NAME + "-" + datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+    source = info["source_revision"][:12] + ("-dirty" if info["dirty"] else "")
+    name = f"{BUNDLE_NAME}-{product_version()}-{source}-" + datetime.now(UTC).strftime(
+        "%Y%m%d-%H%M%S"
+    )
     target = DIST_DIRECTORY / name
     DIST_DIRECTORY.mkdir(exist_ok=True)
     if target.exists():

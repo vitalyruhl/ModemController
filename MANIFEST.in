@@ -1,0 +1,3 @@
+include version.json
+include uv.lock
+include source-build.json

@@ -5,11 +5,11 @@ from __future__ import annotations
 import json
 import re
 from datetime import UTC, datetime
-from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 from modem_controller.catalog.storage import SettingsStore
 from modem_controller.transport.capture import CaptureRecord, CaptureSnapshot
+from modem_controller.versioning import product_version
 from modem_controller.workflows.diagnostics import DiagnosticResult
 
 _SENSITIVE = re.compile(
@@ -53,13 +53,6 @@ def _clean(value):
     if isinstance(value, list | tuple):
         return [_clean(item) for item in value]
     return value
-
-
-def product_version() -> str:
-    try:
-        return version("modem-controller-rs232")
-    except PackageNotFoundError:
-        return "unversioned development source"
 
 
 def render_report(

@@ -43,7 +43,6 @@ wheels = [
 
 [[package]]
 name = "modem-controller-rs232"
-version = "0.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "pyserial" },
