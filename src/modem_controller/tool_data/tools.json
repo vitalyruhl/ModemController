@@ -1,4 +1,16 @@
 {
   "schema_version": 1,
-  "tools": []
+  "tools": [
+    {
+      "id": "windows-ras-collector",
+      "label": "Windows RAS evidence collector",
+      "script": "ras-collect.ps1",
+      "kind": "ps1",
+      "arguments": [],
+      "timeout_seconds": 60,
+      "output_limit": 65536,
+      "serial_requirement": "disconnected",
+      "effects": "Reads only the selected host sources and writes redacted reports into a new chosen directory. May include identifying device information. No dialing, service/registry changes or log enabling. Configure collection scope and consent before review."
+    }
+  ]
 }

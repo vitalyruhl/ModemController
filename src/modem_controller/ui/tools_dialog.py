@@ -2,6 +2,7 @@
 
 import json
 from dataclasses import asdict, replace
+from importlib.resources import files
 from pathlib import Path
 from threading import Event
 
@@ -20,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from modem_controller.catalog.storage import SettingsStore
+from modem_controller.ui.ras_options import RasOptionsDialog
 from modem_controller.workflows.tools import load_tool_registry, review_tool, run_tool
 
 
@@ -74,6 +76,8 @@ class ToolsDialog(QDialog):
         self.import_button = QPushButton("Import definitions...", self)
         self.save_button = QPushButton("Save definitions...", self)
         self.review_button = QPushButton("Confirm script review", self)
+        self.scope_button = QPushButton("Collection options...", self)
+        self.scope_button.clicked.connect(self._collection_options)
         self.run_button = QPushButton("Run selected tool", self)
         self.cancel_button = QPushButton("Cancel running tool", self)
         self.cancel_button.setEnabled(False)
@@ -81,6 +85,7 @@ class ToolsDialog(QDialog):
             self.import_button,
             self.save_button,
             self.review_button,
+            self.scope_button,
             self.run_button,
             self.cancel_button,
         ):
@@ -104,6 +109,10 @@ class ToolsDialog(QDialog):
         path = directory / "tools.json"
         if path.exists():
             self._load(path)
+        else:
+            self._load(
+                Path(str(files("modem_controller").joinpath("tool_data", "tools.json")))
+            )
 
     def _load(self, path):
         try:
@@ -121,6 +130,7 @@ class ToolsDialog(QDialog):
             self._invalidate()
             return
         tool = self.definitions[index]
+        self.scope_button.setEnabled(tool.id == "windows-ras-collector")
         self.interpreter.setText(str(tool.interpreter or ""))
         self.arguments.setPlainText(json.dumps(tool.arguments, indent=2))
         self.working_directory.setText(
@@ -164,6 +174,11 @@ class ToolsDialog(QDialog):
             reviewed_fingerprint="",
         )
 
+    def _collection_options(self):
+        dialog = RasOptionsDialog(self.directory, self)
+        if dialog.exec():
+            self.arguments.setPlainText(json.dumps(dialog.arguments(), indent=2))
+
     def _review(self):
         try:
             self.reviewed = review_tool(self._candidate())
@@ -192,6 +207,7 @@ class ToolsDialog(QDialog):
         ):
             widget.setEnabled(False)
         self.cancel_button.setEnabled(True)
+        self.scope_button.setEnabled(False)
         self.output.setPlainText(
             "Running... Output is bounded and shown on completion."
         )
@@ -215,6 +231,11 @@ class ToolsDialog(QDialog):
         ):
             widget.setEnabled(True)
         self.cancel_button.setEnabled(False)
+        self.scope_button.setEnabled(
+            self.selector.currentIndex() >= 0
+            and self.definitions[self.selector.currentIndex()].id
+            == "windows-ras-collector"
+        )
         self._invalidate()
         if self.close_pending:
             self.close()

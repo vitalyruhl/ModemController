@@ -44,6 +44,9 @@ def build_command(
         "--copy-metadata",
         "modem-controller-rs232",
         "--add-data",
+        str(PROJECT_ROOT / "src" / "modem_controller" / "tool_data")
+        + ":modem_controller/tool_data",
+        "--add-data",
         str(BUILD_DIRECTORY / "_version.json") + ":modem_controller",
         "--add-data",
         str(BUILD_DIRECTORY / "_build.json") + ":modem_controller",
@@ -119,6 +122,10 @@ def build() -> Path:
         PROJECT_ROOT / "src" / "modem_controller" / "tool_data" / "tools.json",
         bundle / "tools.json",
     )
+    shutil.copy2(
+        PROJECT_ROOT / "src" / "modem_controller" / "tool_data" / "ras-collect.ps1",
+        bundle / "ras-collect.ps1",
+    )
     (bundle / "build-info.json").write_text(
         json.dumps(info, indent=2) + "\n", encoding="utf-8"
     )
@@ -136,6 +143,7 @@ def build() -> Path:
         "versioning.md",
         "release-notes.md",
         "local-tools.md",
+        "ras-collection.md",
     ):
         shutil.copy2(PROJECT_ROOT / "docs" / name, help_directory / name)
     shutil.copytree(PROJECT_ROOT / "docs" / "licenses", bundle / "licenses")
