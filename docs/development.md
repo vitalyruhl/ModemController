@@ -21,6 +21,11 @@ scope, especially for PIN entry, configuration changes or SMS submission.
 
 ## Build a portable ZIP
 
+GitHub CI runs the offline checks and source build on Windows with Python 3.12
+and 3.13. A manual CI run also builds and smoke-checks the portable archive.
+The published source `.tar.gz` includes this guide, the locked dependency file,
+build scripts and source provenance; extract it before running the commands.
+
 Double-click **`build-portable.cmd`** in the repository root, or run:
 
 ```powershell

@@ -1,75 +1,69 @@
 # Third-party notices
 
-This document and the assets in [`licenses/`](licenses/) record the notice
-inputs for the Windows onedir payload inspected on 2026-09-19. They do not
-establish that an artifact is compliant or complete. The build/release workflow
-must inspect each generated payload and add every component it includes.
+ModemController uses the following components in its Windows portable package.
+License texts are included in [`licenses/`](licenses/). The package's
+`build-info.json` identifies its source revision, Python version and dependency
+lock; `contents-sha256.json` identifies the packaged files.
 
-## Recorded inputs
+## Runtime components
 
-| Component | Version observed | License asset or source |
+| Component | Version | License and provenance |
 | --- | --- | --- |
-| CPython | 3.13.15 local interpreter | [`licenses/Python-3.13.15-LICENSE.txt`](licenses/Python-3.13.15-LICENSE.txt) |
-| pyserial | 3.5 | [`licenses/pyserial-3.5-LICENSE.txt`](licenses/pyserial-3.5-LICENSE.txt) |
-| PySide6, PySide6-Essentials, PySide6-Addons, Shiboken6 | 6.8.3 | [`licenses/pyside-setup-6.8.3-LGPL-3.0-only.txt`](licenses/pyside-setup-6.8.3-LGPL-3.0-only.txt) |
-| Qt base runtime | 6.8.3 | [`licenses/qtbase-6.8.3/`](licenses/qtbase-6.8.3/) and [`licenses/QT_PYSIDE_SHA256SUMS.txt`](licenses/QT_PYSIDE_SHA256SUMS.txt) |
-| PyInstaller | 6.12.0 | [`licenses/pyinstaller-6.12.0-COPYING.txt`](licenses/pyinstaller-6.12.0-COPYING.txt) |
+| CPython | 3.13.15 | [`Python-3.13.15-LICENSE.txt`](licenses/Python-3.13.15-LICENSE.txt), copied from the installed Windows interpreter |
+| OpenSSL used by CPython | 3.0.21 | [`openssl-3.0.21-LICENSE.txt`](licenses/openssl-3.0.21-LICENSE.txt), Apache 2.0; the same text is also included in the Python Windows license |
+| pyserial | 3.5 | [`pyserial-3.5-LICENSE.txt`](licenses/pyserial-3.5-LICENSE.txt) |
+| PySide6 and Shiboken6 | 6.8.3 | [`pyside-setup-6.8.3-LGPL-3.0-only.txt`](licenses/pyside-setup-6.8.3-LGPL-3.0-only.txt) |
+| Qt Core, Gui, Network and Widgets | 6.8.3 | [`qtbase-6.8.3/`](licenses/qtbase-6.8.3/) includes LGPL 3.0 and third-party notices |
+| PyInstaller bootloader | 6.12.0 | [`pyinstaller-6.12.0-COPYING.txt`](licenses/pyinstaller-6.12.0-COPYING.txt), including the bootloader exception |
 
-The PyInstaller asset includes its bootloader exception. It is recorded because
-the generated Windows executable contains a bootloader; it does not by itself
-enumerate all build-time or run-time-hook material.
+PySide6 wheel metadata offers `LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only`
+and a commercial route. This package records the LGPL 3.0 open-source route
+for the Qt/PySide libraries. The separate DLLs remain in the portable directory.
+Their license terms, including modification and replacement rights, are not
+replaced by the application's license.
 
-PySide6 wheel metadata records `LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only`
-as well as a commercial license file. This repository records the LGPL text for
-the intended open-source notice path and makes no selection or legal conclusion
-for an eventual distribution.
+Qt's upstream source and attribution records are available in the
+[Qtbase 6.8.3 source tree](https://code.qt.io/cgit/qt/qtbase.git/tree/?h=v6.8.3)
+and the [PySide 6.8.3 source tree](https://github.com/pyside/pyside-setup/tree/v6.8.3).
+The recorded Qtbase license catalog is deliberately broader than the included
+Qt modules. Its 16 attribution records cover common third-party sources used
+by Core, Gui, Network and Widgets. The official Qt for Python license page is
+also preserved in
+[`pyside6-6.8-third-party-licenses.html`](licenses/pyside6-6.8-third-party-licenses.html).
 
-The local interpreter reports Python 3.13.15. That differs from the previously
-noted 3.13.7 and must be reconciled against the interpreter actually frozen into
-each artifact.
+## Microsoft runtime files
 
-## Inspected Qt payload
+These files accompany the upstream Windows interpreter and binding wheels;
+their versions are separate from the Python and Qt version numbers.
 
-The inspected payload contains `Qt6Core.dll`, `Qt6Gui.dll`, `Qt6Network.dll`,
-`Qt6Widgets.dll`, `pyside6.abi3.dll`, and `opengl32sw.dll`. Its Qt plugins are
-`qnetworklistmanager`, `qminimal`, `qoffscreen`, `qwindows`,
-`qmodernwindowsstyle`, `qcertonlybackend`, `qopensslbackend`, and
-`qschannelbackend`. It contains no Qt Qml, Pdf, Quick, or Svg payload.
+| Upstream binary source | Files | Observed file version |
+| --- | --- | --- |
+| CPython 3.13.15 Windows installation | `VCRUNTIME140.dll`, `VCRUNTIME140_1.dll` | 14.51.36247.0 |
+| PySide6 6.8.3 Windows wheel | `MSVCP140.dll`, `MSVCP140_1.dll`, `MSVCP140_2.dll`, `VCRUNTIME140.dll`, `VCRUNTIME140_1.dll` | 14.39.33520.0 |
+| Shiboken6 6.8.3 Windows wheel | `MSVCP140.dll`, `VCRUNTIME140.dll`, `VCRUNTIME140_1.dll` | 14.39.33520.0 |
 
-For conservative source coverage, [`licenses/qtbase-6.8.3/`](licenses/qtbase-6.8.3/)
-contains every text license in the Qtbase 6.8.3 `LICENSES` directory and the
-16 attribution records relevant to Qt Core, Gui, Network, Widgets, and their
-common third-party sources. The official Qt for Python 6.8 third-party-license
-page is preserved as
-[`licenses/pyside6-6.8-third-party-licenses.html`](licenses/pyside6-6.8-third-party-licenses.html).
-[`licenses/QT_PYSIDE_SHA256SUMS.txt`](licenses/QT_PYSIDE_SHA256SUMS.txt)
-records portable, `licenses/`-relative hashes for these source records.
+The included Python license preserves its **Additional Conditions for this
+Windows binary build**, including the Microsoft Distributable Code conditions.
+Microsoft's own
+[redistribution documentation](https://learn.microsoft.com/en-us/cpp/windows/redistributing-visual-cpp-files?view=msvc-170)
+and [Visual Studio 2022 distributable-code list](https://learn.microsoft.com/en-us/visualstudio/releases/2022/redistribution)
+describe the applicable restrictions. The PySide wheel metadata does not supply
+a separate Microsoft runtime license. Recording the wheel source and DLL
+version does not grant rights beyond the upstream terms.
 
-The payload also contains Microsoft CRT files `MSVCP140.dll`,
-`MSVCP140_1.dll`, `MSVCP140_2.dll`, `VCRUNTIME140.dll`, and
-`VCRUNTIME140_1.dll`, obtained through the frozen wheel set. No matching
-Microsoft redistribution license text was present in the inspected wheel
-metadata or the locally available Visual C++ redist material. Preserve and
-review the Microsoft Visual C++ Redistributable terms that apply to the exact
-redist source before public redistribution.
+## Package boundaries
 
-## Remaining artifact-specific checks
+Public release packaging excludes the optional Mesa software OpenGL renderer
+(`opengl32sw.dll`) and Qt's optional OpenSSL backend (`qopensslbackend.dll`).
+CPython's own `libcrypto-3.dll` and `libssl-3.dll` remain included; they are the
+OpenSSL 3.0.21 components listed above. Build collection must not acquire
+additional OpenSSL or Universal CRT DLLs from unrelated tools on `PATH`.
 
-The included Qtbase source records are a conservative notice set; they are not
-a component-to-attribution determination. Before a public release, verify the
-shipping binary provenance for `opengl32sw.dll`, the OpenSSL backend, and the
-Microsoft CRT files against the final archive. This is required because the
-exact source/build configuration and applicable redistribution terms cannot be
-determined from the inspected wheel metadata alone.
+Manufacturer modem PDFs are not part of the public package. Consult
+[modem manual sources](reference/modem-manuals.md) for official download and
+support entry points. A document's former presence in this repository does
+not change its manufacturer's terms.
 
-Use these primary Qt source entry points during that verification:
-
-- [qtbase 6.8.3 license directory](https://code.qt.io/cgit/qt/qtbase.git/tree/LICENSES?h=v6.8.3)
-- [qtbase attribution metadata](https://code.qt.io/cgit/qt/qtbase.git/tree/src/gui/qt_attribution.json?h=v6.8.3)
-- [Qt source modules at 6.8.3](https://code.qt.io/cgit/qt/qt.git/tree/?h=v6.8.3)
-
-Do not treat this document as a substitute for the component-to-attribution
-mapping, the applicable Qt licensing route, or final archive inspection.
-
-Asset URLs and SHA-256 values are recorded in
-[`licenses/PROVENANCE.md`](licenses/PROVENANCE.md).
+Asset URLs, hashes and binary-source verification details are recorded in
+[`licenses/PROVENANCE.md`](licenses/PROVENANCE.md). Recheck that mapping when
+changing the interpreter, wheel versions or portable build inputs.

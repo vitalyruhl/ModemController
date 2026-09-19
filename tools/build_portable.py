@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -20,6 +21,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DIST_DIRECTORY = PROJECT_ROOT / "dist"
 BUILD_DIRECTORY = PROJECT_ROOT / "build" / "pyinstaller"
 BUNDLE_NAME = "ModemController"
+OPTIONAL_RUNTIME_FILENAMES = frozenset({"opengl32sw.dll", "qopensslbackend.dll"})
 
 
 def build_command(
@@ -68,6 +70,37 @@ def build_command(
     ]
 
 
+def build_environment(environ: dict[str, str] | None = None) -> dict[str, str]:
+    """Keep PyInstaller discovery independent of workstation PATH additions."""
+    source = os.environ if environ is None else environ
+    environment = {
+        key: value
+        for key, value in source.items()
+        if key not in {"PYTHONHOME", "PYTHONPATH", "PYTHONUSERBASE"}
+    }
+    system_root = Path(source.get("SystemRoot", r"C:\Windows"))
+    environment["PATH"] = os.pathsep.join(
+        str(path)
+        for path in (
+            Path(sys.executable).resolve().parent,
+            Path(sys.base_prefix).resolve(),
+            system_root / "System32",
+            system_root,
+        )
+    )
+    environment["PYTHONNOUSERSITE"] = "1"
+    return environment
+
+
+def run_pyinstaller(command: list[str]) -> None:
+    subprocess.run(
+        command,
+        check=True,
+        cwd=PROJECT_ROOT,
+        env=build_environment(),
+    )
+
+
 def audit_bundle(bundle: Path) -> None:
     """Fail closed if a collector accidentally includes personal/local material."""
     for path in bundle.rglob("*"):
@@ -88,6 +121,16 @@ def audit_bundle(bundle: Path) -> None:
         raise ValueError("Portable initial settings must be blank defaults")
 
 
+def prune_optional_runtime_files(bundle: Path) -> tuple[Path, ...]:
+    """Remove only optional software rendering and OpenSSL Qt backend files."""
+    removed = []
+    for path in bundle.rglob("*"):
+        if path.is_file() and path.name.casefold() in OPTIONAL_RUNTIME_FILENAMES:
+            path.unlink()
+            removed.append(path.relative_to(bundle))
+    return tuple(removed)
+
+
 def same_provenance(left: dict, right: dict) -> bool:
     """Compare all provenance fields except the intentionally unique build time."""
     return {key: value for key, value in left.items() if key != "built_at_utc"} == {
@@ -96,7 +139,7 @@ def same_provenance(left: dict, right: dict) -> bool:
 
 
 def copy_help(bundle: Path) -> None:
-    """Copy user documentation and PDF manuals, adapting repository-only links."""
+    """Copy user documentation and manufacturer download links."""
     readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
     readme = readme.replace("](docs/", "](help/").replace(
         "](LICENSE)", "](LICENSE.txt)"
@@ -121,6 +164,7 @@ def copy_help(bundle: Path) -> None:
         "reference/at-commands.md",
         "reference/legacy-command-inventory.md",
         "reference/gsm-sms-initialization.md",
+        "reference/modem-manuals.md",
     ):
         text = (PROJECT_ROOT / "docs" / name).read_text(encoding="utf-8")
         if name == "third-party-notices.md":
@@ -134,15 +178,6 @@ def copy_help(bundle: Path) -> None:
         destination = help_directory / name
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_text(text, encoding="utf-8")
-    manuals = PROJECT_ROOT / "docs" / "reference" / "modems"
-    for source in sorted(manuals.rglob("*.pdf")):
-        if not source.resolve().is_relative_to(manuals.resolve()):
-            raise ValueError("Manual path escapes the documentation directory")
-        destination = (
-            help_directory / "reference" / "modems" / source.relative_to(manuals)
-        )
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, destination)
 
 
 def build(*, candidate: bool = False) -> Path:
@@ -170,14 +205,11 @@ def build(*, candidate: bool = False) -> Path:
     )
     stage = BUILD_DIRECTORY / ("stage-" + uuid.uuid4().hex)
     for console in (False, True):
-        subprocess.run(
-            build_command(console=console, destination=stage),
-            check=True,
-            cwd=PROJECT_ROOT,
-        )
+        run_pyinstaller(build_command(console=console, destination=stage))
     bundle = stage / BUNDLE_NAME
     shutil.copy2(stage / "ModemConsole" / "ModemConsole.exe", bundle)
     shutil.copytree(stage / "ModemConsole" / "_console", bundle / "_console")
+    prune_optional_runtime_files(bundle)
     seed_catalog_files(bundle)
     shutil.copytree(
         PROJECT_ROOT / "src" / "modem_controller" / "tool_data" / "plugins",

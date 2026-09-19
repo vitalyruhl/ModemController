@@ -52,9 +52,8 @@ folders. An optional remembered external settings directory remains authoritativ
 
 The build uses an explicit package-resource whitelist. Personal source settings,
 logs, drivers, local plans and governance are excluded. The root `README.md` links
-to the bundled `help/` documentation. PDF modem manuals from
-`docs/reference/modems/` are copied to `help/reference/modems/`, preserving their
-subfolders; non-PDF files such as driver installers are excluded. Help,
+to the bundled `help/` documentation. Manufacturer manuals are linked in
+`help/reference/modem-manuals.md`; local PDFs and driver installers are excluded. Help,
 project license, third-party notices and a SHA-256 contents manifest are included.
 The notice pack records upstream provenance; public distribution and clean-target
 acceptance are separate from a successful local build.

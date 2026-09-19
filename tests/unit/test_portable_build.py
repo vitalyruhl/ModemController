@@ -10,20 +10,15 @@ build_portable = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(build_portable)
 
 
-def test_portable_help_contains_manuals_and_working_readme_links(tmp_path):
+def test_portable_help_contains_manual_links_without_redistributing_pdfs(tmp_path):
     import re
 
     root = build_portable.PROJECT_ROOT
     (tmp_path / "LICENSE.txt").write_bytes((root / "LICENSE").read_bytes())
     build_portable.copy_help(tmp_path)
-    sources = root / "docs" / "reference" / "modems"
-    manuals = list(sources.rglob("*.pdf"))
-    assert manuals
-    for source in manuals:
-        target = (
-            tmp_path / "help" / "reference" / "modems" / source.relative_to(sources)
-        )
-        assert target.read_bytes() == source.read_bytes()
+    manual_links = tmp_path / "help" / "reference" / "modem-manuals.md"
+    assert "https://" in manual_links.read_text(encoding="utf-8")
+    assert not list((tmp_path / "help").rglob("*.pdf"))
     assert not list((tmp_path / "help").rglob("*.exe"))
     for document in (tmp_path / "README.md", tmp_path / "help" / "README.md"):
         text = document.read_text(encoding="utf-8")
@@ -58,6 +53,87 @@ def test_console_recipe_is_headless_and_bundles_metadata():
     assert "--console" in command and "--windowed" not in command
     assert "--copy-metadata" in command
     assert command[-1].endswith("cli.py")
+
+
+def test_pyinstaller_environment_uses_only_python_and_windows_system_paths(
+    monkeypatch, tmp_path
+):
+    executable = tmp_path / "venv" / "Scripts" / "python.exe"
+    base = tmp_path / "python"
+    monkeypatch.setattr(build_portable.sys, "executable", str(executable))
+    monkeypatch.setattr(build_portable.sys, "base_prefix", str(base))
+    inherited = {
+        "PATH": r"C:\Codex\Poppler;C:\Codex\libheif",
+        "PYTHONPATH": r"C:\foreign-python",
+        "PYTHONHOME": r"C:\foreign-home",
+        "PYTHONUSERBASE": r"C:\foreign-user",
+        "SystemRoot": r"C:\Windows",
+        "KEEP": "value",
+    }
+
+    environment = build_portable.build_environment(inherited)
+
+    assert inherited["PATH"] == r"C:\Codex\Poppler;C:\Codex\libheif"
+    assert all(
+        unwanted not in environment["PATH"] for unwanted in ("Poppler", "libheif")
+    )
+    assert "PYTHONPATH" not in environment
+    assert "PYTHONHOME" not in environment
+    assert "PYTHONUSERBASE" not in environment
+    assert environment["KEEP"] == "value"
+    assert environment["PYTHONNOUSERSITE"] == "1"
+    assert environment["PATH"].split(";") == [
+        str(executable.parent),
+        str(base),
+        r"C:\Windows\System32",
+        r"C:\Windows",
+    ]
+
+
+def test_pyinstaller_runner_uses_sanitized_environment(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(
+        build_portable,
+        "build_environment",
+        lambda: {"PATH": "sanitized", "PYTHONNOUSERSITE": "1"},
+    )
+    monkeypatch.setattr(
+        build_portable.subprocess,
+        "run",
+        lambda *args, **kwargs: captured.update(args=args, kwargs=kwargs),
+    )
+
+    build_portable.run_pyinstaller(["pyinstaller", "app.py"])
+
+    assert captured["args"] == (["pyinstaller", "app.py"],)
+    assert captured["kwargs"]["env"] == {
+        "PATH": "sanitized",
+        "PYTHONNOUSERSITE": "1",
+    }
+    assert captured["kwargs"]["cwd"] == build_portable.PROJECT_ROOT
+
+
+def test_pruning_removes_only_named_optional_runtime_files(tmp_path):
+    optional = (
+        tmp_path / "opengl32sw.dll",
+        tmp_path / "plugins" / "tls" / "qopensslbackend.dll",
+    )
+    retained = (
+        tmp_path / "qschannelbackend.dll",
+        tmp_path / "opengl32.dll",
+        tmp_path / "libssl-3-x64.dll",
+    )
+    for path in (*optional, *retained):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"synthetic")
+
+    removed = build_portable.prune_optional_runtime_files(tmp_path)
+
+    assert set(removed) == {
+        Path("opengl32sw.dll"),
+        Path("plugins/tls/qopensslbackend.dll"),
+    }
+    assert all(path.exists() for path in retained)
 
 
 def test_candidate_build_rejects_dirty_source_before_any_output(monkeypatch, tmp_path):

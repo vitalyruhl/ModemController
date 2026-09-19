@@ -419,3 +419,7 @@ htmlcov/
 !/.projectatlas/config.toml
 !/.projectatlas/projectatlas-nonsource-files.toon
 .codegraphy/*
+
+# Local historical binaries and manufacturer reference downloads.
+/.Old_Version/
+/docs/reference/modems/

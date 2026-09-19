@@ -1,5 +1,25 @@
 # Release notes
 
+## 2.1.3 - public Python release and isolated portable build
+
+This is the first public Python GUI/CLI release, replacing the VB application
+on `main`. The repository is now named **ModemController**. Native serial ports,
+USB-to-serial adapters and USB modems with a serial AT interface use the same
+COM-port workflow. The historical `V1.5.0.10` tag/release remains available.
+
+The public portable ZIP includes download references for manufacturer manuals
+instead of redistributing their PDFs. The source `.tar.gz` includes build scripts,
+locked dependencies and documentation. Windows CI checks Python 3.12 and 3.13.
+Portable builds isolate dependency discovery from unrelated programs on PATH.
+
+The user confirmed SMS sending and receiving on the tested BG95-M3 setup.
+Clean Windows 10/11 and Server 2019+ field checks remain pending. Voice dialing
+on this firmware is unconfirmed; the Phoenix Contact test is deferred. SIM Info,
+the settings popup and cross-profile JSON-value search remain planned.
+
+Version 2.1.3 changes packaging and documentation; the SMS implementation
+accepted by the user in 2.1.2 is unchanged.
+
 ## 2.1.2 - SMS confirmation and visible workflow traffic
 
 Native Qt Yes results are compared by value so confirmed SMS sends/reads and

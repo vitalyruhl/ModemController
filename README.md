@@ -4,6 +4,8 @@
 
 **Windows · Portable · GUI + CLI · Analog / GSM / AT-compatible ISDN**
 
+[Download the latest release](https://github.com/vitalyruhl/ModemController/releases/latest)
+
 Connect your device, send an AT command, inspect the reply and save useful evidence.
 Use the compact graphical window for quick checks and command templates, or work
 directly in a terminal with the standalone console. The GUI keeps advanced
@@ -22,6 +24,10 @@ controls tucked away until you need them.
 Device names are never a support promise. Command availability depends on the
 actual module, firmware, adapter and driver. See [device support](docs/device-support.md)
 before sending a profile command.
+
+Connect through a native serial port, a USB-to-serial adapter or a USB modem
+that exposes a Windows COM port. A serial AT interface is required; a USB
+connection alone does not establish compatibility.
 
 ## Run the portable app
 

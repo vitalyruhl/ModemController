@@ -2,7 +2,7 @@
   "schema_version": 1,
   "references": {
     "at-text-reference": "docs/reference/at-commands.md",
-    "tc35-at-manual": "docs/reference/modems/tc35/tc3x_atc_01_v0400.pdf",
+    "tc35-at-manual": "docs/reference/modem-manuals.md",
     "quectel-bg95-at-v2": "https://quectel.com/content/uploads/2021/03/Quectel_BG95BG77BG600L_Series_AT_Commands_Manual_V2.0-2.pdf",
     "bg95-observation": "docs/device-support.md",
     "legacy-command-inventory": "docs/reference/legacy-command-inventory.md"

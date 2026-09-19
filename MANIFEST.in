@@ -1,3 +1,14 @@
 include version.json
 include uv.lock
 include source-build.json
+include build-portable.cmd
+include start-gui.cmd
+recursive-include tools *.py
+recursive-include docs *.md *.txt *.json *.html *.png *.jpg
+prune docs/reference/modems
+prune .Old_Version
+prune .agents
+prune .Plan
+prune .serena
+prune .projectatlas
+global-exclude __pycache__ *.py[cod] *.log
