@@ -110,14 +110,22 @@ for `AT+CLIP=1`. These are user-operated observations, not a new agent hardware 
 They do not establish SMS delivery, full initialization success, or complete
 acceptance of a milestone. Subsequent 2.1.0 changes require renewed user testing.
 
-### Outstanding gates
+### User SMS acceptance on 2.1.2 (2026-09-19)
 
-SMS acceptance is an explicit integration blocker as of the user's 2026-09-19
-2.1.0 feedback. Version 2.1.2 corrects confirmation handling, visible guided
-traffic and the basic GSM-character-set preflight. Before merging, the user must
-confirm a real message arrives at the recipient and that terminal/log evidence
-is understandable. Offline fake-modem acknowledgement is not delivery evidence.
-Other device/field and clean-target tests remain separately open.
+The user explicitly confirmed successful SMS sending and receiving with portable
+2.1.2, source `16991738d4d0`, on the current BG95-M3 setup. The supplied local log
+records CMGS submission at 19:53:16 UTC, `+CMGS: 5` at 19:53:17 UTC, the application
+submission result and successful indexed CMGR reads. Recipient delivery is based
+on the user's confirmation, not inferred from the modem acknowledgement alone.
+Personal numbers, identifiers and message bodies are not copied into this record.
+
+The SMS send/receive integration blocker is closed for this tested scope. The
+93 focused regression tests, independent review and relocated package startup
+evidence apply to the same product source. Other firmware, devices, character
+sets, field conditions and clean-target platforms remain separate acceptance work.
+This records acceptance only; no merge, push or release publication is implied.
+
+### Outstanding gates
 
 | Gate | Current evidence / required action |
 | --- | --- |
@@ -127,7 +135,7 @@ Other device/field and clean-target tests remain separately open.
 | Clean Windows 10 20H2 x64 / Windows 11 | Pending launch, relocation, non-writable folder fallback and operation without installed Python |
 | Windows Server 2019 and later | User has systems available; no runs performed and no general support claim |
 | User HIL | Pending terminal, search, disconnect/unplug, diagnostics, catalog persistence and export acceptance |
-| State-changing modem / SMS checks | Require explicit device and operation scope; not implied by read-only access |
+| State-changing modem / SMS checks | User accepted basic SMS sending/receiving on the current 2.1.2 setup; other state-changing actions and device combinations remain open |
 | RAS host collection | Pending explicit selected collection scope; normal AT use does not require it |
 | Public redistribution | Additional OpenGL/OpenSSL/Microsoft CRT provenance review remains open; see third-party notices |
 
