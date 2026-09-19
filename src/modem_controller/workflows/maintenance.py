@@ -5,11 +5,13 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
+from time import monotonic, sleep
 
 from modem_controller.catalog.models import (
     CatalogCommand,
     CommandKind,
     CommandUnavailableError,
+    DeviceProfile,
     RiskLevel,
 )
 from modem_controller.protocol.at_session import AtExchange, ExchangeOutcome
@@ -115,3 +117,107 @@ class MaintenanceRunner:
             )
         if command.risk is RiskLevel.READ_ONLY:
             raise ValueError("read-only commands do not need maintenance confirmation")
+
+
+class SequenceRunner:
+    """Bounded, cancellable command references with no retries or resume mechanism."""
+
+    def __init__(self, execute, *, cancelled=lambda: False, clock=monotonic, wait=None):
+        self._execute = execute
+        self._cancelled = cancelled
+        self._clock = clock
+        self._wait = wait or self._interruptible_wait
+
+    def _interruptible_wait(self, seconds: float) -> None:
+        until = self._clock() + seconds
+        while not self._cancelled() and self._clock() < until:
+            sleep(min(0.01, max(0, until - self._clock())))
+
+    @staticmethod
+    def validate(sequence: CatalogCommand, profile: DeviceProfile) -> None:
+        if sequence.kind is not CommandKind.SEQUENCE or not sequence.is_visible:
+            raise CommandUnavailableError("sequence must be reviewed before execution")
+        for index, step in enumerate(sequence.sequence_steps):
+            command = profile.command(step.command_id)
+            if not command.is_visible or command.kind not in {
+                CommandKind.AT,
+                CommandKind.BYTES,
+            }:
+                raise CommandUnavailableError(
+                    "sequence step is not a reviewed AT/byte action"
+                )
+            if any(p.secret for p in command.parameters) and (
+                index != len(sequence.sequence_steps) - 1 or step.expected_contains
+            ):
+                raise ValueError("secret step must be last without a text condition")
+
+    def run(
+        self, sequence, profile, values, *, confirmed: bool, total_timeout: float = 30.0
+    ) -> MaintenanceResult:
+        self.validate(sequence, profile)
+        if not 0 < total_timeout <= 120:
+            raise ValueError("sequence total budget must be within 120 seconds")
+        commands = [
+            profile.command(step.command_id) for step in sequence.sequence_steps
+        ]
+        arguments = [
+            {p.name: values[p.name] for p in command.parameters if p.name in values}
+            for command in commands
+        ]
+        # Validate all parameters before the first byte; do not retain rendered secrets.
+        for command, args in zip(commands, arguments, strict=True):
+            command.render(args)
+        evidence = []
+        sent = False
+        secret_used = False
+        outcome = MaintenanceOutcome.CANCELLED
+        deadline = self._clock() + total_timeout
+        if confirmed:
+            outcome = MaintenanceOutcome.COMPLETED
+            for step, command, args in zip(
+                sequence.sequence_steps, commands, arguments, strict=True
+            ):
+                if self._cancelled():
+                    outcome = MaintenanceOutcome.CANCELLED
+                    break
+                remaining = deadline - self._clock()
+                if remaining <= 0:
+                    outcome = MaintenanceOutcome.INCONCLUSIVE
+                    break
+                sent = True
+                secret = any(p.secret for p in command.parameters)
+                secret_used |= secret
+                exchange = self._execute(
+                    command, args, min(step.timeout_seconds, remaining)
+                )
+                if not secret:
+                    evidence.extend(exchange.response_lines)
+                if (
+                    exchange.outcome is not ExchangeOutcome.COMPLETED
+                    or exchange.final_result != b"OK"
+                    or self._clock() > deadline
+                    or (
+                        step.expected_contains
+                        and step.expected_contains.encode("ascii")
+                        not in b"\n".join(exchange.response_lines)
+                    )
+                ):
+                    outcome = MaintenanceOutcome.INCONCLUSIVE
+                    break
+                remaining = deadline - self._clock()
+                if step.delay_seconds > remaining:
+                    outcome = MaintenanceOutcome.INCONCLUSIVE
+                    break
+                if step.delay_seconds:
+                    self._wait(step.delay_seconds)
+                if self._cancelled():
+                    outcome = MaintenanceOutcome.CANCELLED
+                    break
+        return MaintenanceResult(
+            sequence.id,
+            outcome,
+            tuple(evidence),
+            sent,
+            "Sensitive step excluded from capture." if secret_used else None,
+            "Reconnect before another action. No automatic retry or resume.",
+        )

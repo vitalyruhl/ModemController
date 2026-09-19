@@ -49,7 +49,11 @@ from modem_controller.ui.sms_dialog import SmsDialog
 from modem_controller.ui.terminal_view import TerminalWorkspace
 from modem_controller.workflows.connection_search import ConnectionSearchResult
 from modem_controller.workflows.diagnostics import DiagnosticResult
-from modem_controller.workflows.maintenance import MaintenanceResult, MaintenanceRunner
+from modem_controller.workflows.maintenance import (
+    MaintenanceResult,
+    MaintenanceRunner,
+    SequenceRunner,
+)
 from modem_controller.workflows.sms import SmsSendResult
 
 
@@ -221,7 +225,8 @@ class MainWindow(QMainWindow):
                 and not self._workflow_active
                 and (
                     command.risk is RiskLevel.READ_ONLY
-                    or command.kind in {CommandKind.AT, CommandKind.BYTES}
+                    or command.kind
+                    in {CommandKind.AT, CommandKind.BYTES, CommandKind.SEQUENCE}
                 )
             )
             button.clicked.connect(
@@ -231,6 +236,9 @@ class MainWindow(QMainWindow):
 
     def _request_preset(self, command: CatalogCommand) -> None:
         if not self._preset_execution_enabled or self._workflow_active:
+            return
+        if command.kind is CommandKind.SEQUENCE:
+            self._request_sequence(command)
             return
         if command.risk is RiskLevel.READ_ONLY:
             payload = command.render()
@@ -392,6 +400,51 @@ class MainWindow(QMainWindow):
         if answer is QMessageBox.Yes:
             self.connection_panel.apply_settings(settings)
             self._save_preferences()
+
+    def _request_sequence(self, command: CatalogCommand) -> None:
+        profile = self._selected_profile()
+        try:
+            SequenceRunner.validate(command, profile)
+        except (ValueError, KeyError, RuntimeError) as error:
+            self.terminal.append_info(str(error))
+            return
+        summary = "\n".join(
+            f"{index + 1}. {profile.command(step.command_id).label}: "
+            f"{profile.command(step.command_id).risk.value}, "
+            f"deadline {step.timeout_seconds:g}s, "
+            f"delay {step.delay_seconds:g}s, condition {step.expected_contains or 'OK'}"
+            for index, step in enumerate(command.sequence_steps)
+        )
+        if (
+            QMessageBox.warning(
+                self,
+                "Confirm reviewed sequence",
+                summary
+                + "\n\nRun once? Stops on failure; no automatic retry or resume.",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            != QMessageBox.Yes
+        ):
+            return
+        parameters = {
+            p.name: p
+            for step in command.sequence_steps
+            for p in profile.command(step.command_id).parameters
+        }
+        values = {}
+        for parameter in parameters.values():
+            value, accepted = QInputDialog.getText(
+                self,
+                "Sequence parameter",
+                parameter.label,
+                QLineEdit.Password if parameter.secret else QLineEdit.Normal,
+            )
+            if not accepted:
+                return
+            values[parameter.name] = value
+        self.set_workflow_active(True)
+        self._controller().run_sequence(command, profile, values)
 
     def _request_maintenance(self, command: CatalogCommand) -> None:
         preview = MaintenanceRunner.preview(command)

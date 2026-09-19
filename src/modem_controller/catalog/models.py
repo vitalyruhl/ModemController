@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from dataclasses import dataclass
 from enum import Enum
@@ -94,6 +95,54 @@ class ParameterDefinition:
 
 
 @dataclass(frozen=True, slots=True)
+class SequenceStep:
+    """A reference to one reviewed command, never executable code or a macro."""
+
+    command_id: str
+    expected_contains: str = ""
+    timeout_seconds: float = 2.0
+    delay_seconds: float = 0.0
+
+    def __post_init__(self) -> None:
+        _validate_identifier(self.command_id, "sequence command id")
+        if not isinstance(self.expected_contains, str):
+            raise CatalogValidationError("sequence condition must be text")
+        if not self.expected_contains.isascii():
+            raise CatalogValidationError("sequence conditions must be ASCII")
+        if not all(
+            isinstance(value, int | float) and not isinstance(value, bool)
+            for value in (self.timeout_seconds, self.delay_seconds)
+        ):
+            raise CatalogValidationError("sequence timing must be numeric")
+        if not 0 < self.timeout_seconds <= 60 or not 0 <= self.delay_seconds <= 10:
+            raise CatalogValidationError("sequence timing exceeds bounded limits")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "command_id": self.command_id,
+            "expected_contains": self.expected_contains,
+            "timeout_seconds": self.timeout_seconds,
+            "delay_seconds": self.delay_seconds,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> SequenceStep:
+        if set(data) - {
+            "command_id",
+            "expected_contains",
+            "timeout_seconds",
+            "delay_seconds",
+        }:
+            raise CatalogValidationError("unknown sequence step fields")
+        return cls(
+            _required_string(data, "command_id"),
+            _optional_string(data, "expected_contains") or "",
+            _positive_number(data, "timeout_seconds"),
+            data.get("delay_seconds", 0),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class CatalogCommand:
     id: str
     label: str
@@ -109,6 +158,7 @@ class CatalogCommand:
     timeout_seconds: float
     parameters: tuple[ParameterDefinition, ...] = ()
     external_tool_id: str | None = None
+    sequence_steps: tuple[SequenceStep, ...] = ()
 
     def __post_init__(self) -> None:
         _validate_identifier(self.id, "command id")
@@ -124,7 +174,7 @@ class CatalogCommand:
             raise CatalogValidationError("command applicability must not be empty")
         if not self.references:
             raise CatalogValidationError("command references must not be empty")
-        if self.timeout_seconds <= 0:
+        if not math.isfinite(self.timeout_seconds) or self.timeout_seconds <= 0:
             raise CatalogValidationError("command timeout_seconds must be positive")
         if len({parameter.name for parameter in self.parameters}) != len(
             self.parameters
@@ -135,8 +185,15 @@ class CatalogCommand:
                 raise CatalogValidationError(
                     "external tool commands need an ID and no transport payload"
                 )
+        elif self.kind is CommandKind.SEQUENCE:
+            if self.payload is not None or not 1 <= len(self.sequence_steps) <= 32:
+                raise CatalogValidationError(
+                    "sequences require 1-32 steps and no payload"
+                )
         elif self.payload is None:
             raise CatalogValidationError("transport commands require a payload")
+        if self.kind is not CommandKind.SEQUENCE and self.sequence_steps:
+            raise CatalogValidationError("only sequence commands can define steps")
         if self.kind is CommandKind.BYTES and self.payload is not None:
             try:
                 bytes.fromhex(self.payload)
@@ -146,7 +203,7 @@ class CatalogCommand:
                 ) from error
         placeholders = set(_PARAMETER_PATTERN.findall(self.payload or ""))
         declared = {parameter.name for parameter in self.parameters}
-        if placeholders != declared:
+        if self.kind is not CommandKind.SEQUENCE and placeholders != declared:
             raise CatalogValidationError(
                 "payload placeholders must match declared command parameters"
             )
@@ -213,6 +270,7 @@ class CatalogCommand:
             "timeout_seconds": self.timeout_seconds,
             "parameters": [parameter.to_dict() for parameter in self.parameters],
             "external_tool_id": self.external_tool_id,
+            "sequence_steps": [step.to_dict() for step in self.sequence_steps],
         }
 
     @classmethod
@@ -235,6 +293,10 @@ class CatalogCommand:
                 for item in _object_list(data, "parameters")
             ),
             external_tool_id=_optional_string(data, "external_tool_id"),
+            sequence_steps=tuple(
+                SequenceStep.from_dict(step)
+                for step in _object_list(data, "sequence_steps")
+            ),
         )
 
 
@@ -253,6 +315,26 @@ class DeviceProfile:
         command_ids = [command.id for command in self.commands]
         if len(set(command_ids)) != len(command_ids):
             raise CatalogValidationError("command IDs must be unique within a profile")
+        for command in self.commands:
+            if command.kind is not CommandKind.SEQUENCE:
+                continue
+            for index, step in enumerate(command.sequence_steps):
+                try:
+                    target = self.command(step.command_id)
+                except KeyError as error:
+                    raise CatalogValidationError(
+                        "sequence references an unknown command"
+                    ) from error
+                if target.kind not in {CommandKind.AT, CommandKind.BYTES}:
+                    raise CatalogValidationError(
+                        "sequence steps must be individual AT/byte commands"
+                    )
+                if any(p.secret for p in target.parameters) and (
+                    index != len(command.sequence_steps) - 1 or step.expected_contains
+                ):
+                    raise CatalogValidationError(
+                        "a secret step must be last, without a text condition"
+                    )
 
     @property
     def visible_commands(self) -> tuple[CatalogCommand, ...]:

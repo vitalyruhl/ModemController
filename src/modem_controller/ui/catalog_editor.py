@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from pathlib import Path
 
@@ -30,6 +31,7 @@ from modem_controller.catalog.models import (
     CommandKind,
     ParameterDefinition,
     RiskLevel,
+    SequenceStep,
     VerificationStatus,
 )
 from modem_controller.catalog.storage import (
@@ -64,6 +66,11 @@ class CatalogEditor(QWidget):
         self.payload = QLineEdit(self)
         self.help_text = QPlainTextEdit(self)
         self.help_text.setMaximumHeight(65)
+        self.steps = QPlainTextEdit(self)
+        self.steps.setMaximumHeight(90)
+        self.steps.setPlaceholderText(
+            "JSON steps: command_id, expected_contains, timeout_seconds, delay_seconds"
+        )
         self.expected_response = QLineEdit(self)
         self.applicability = QLineEdit(self)
         self.references = QLineEdit(self)
@@ -97,6 +104,7 @@ class CatalogEditor(QWidget):
             ("Kind", self.kind),
             ("Command / exact hex", self.payload),
             ("Help", self.help_text),
+            ("Sequence steps", self.steps),
             ("Expected response", self.expected_response),
             ("Timeout (seconds)", self.timeout),
             ("Applies to (comma separated)", self.applicability),
@@ -151,6 +159,7 @@ class CatalogEditor(QWidget):
             self.expected_response,
             self.applicability,
             self.references,
+            self.steps,
             self.help_text,
             self.notes,
         ):
@@ -252,6 +261,9 @@ class CatalogEditor(QWidget):
             (self.references, ",".join(command.references)),
         ):
             widget.setText(value)
+        self.steps.setPlainText(
+            json.dumps([step.to_dict() for step in command.sequence_steps], indent=2)
+        )
         self.help_text.setPlainText(command.help_text)
         self.timeout.setValue(command.timeout_seconds)
         self.kind.setCurrentText(command.kind.value)
@@ -344,10 +356,21 @@ class CatalogEditor(QWidget):
                 risk=RiskLevel(self.risk.currentText()),
                 verification=VerificationStatus(self.verification.currentText()),
                 parameters=tuple(parameters),
+                sequence_steps=tuple(
+                    SequenceStep.from_dict(step)
+                    for step in json.loads(self.steps.toPlainText() or "[]")
+                ),
             )
             execution_changed = any(
                 getattr(command, field) != getattr(old, field)
-                for field in ("payload", "kind", "risk", "parameters", "applicability")
+                for field in (
+                    "payload",
+                    "kind",
+                    "risk",
+                    "parameters",
+                    "applicability",
+                    "sequence_steps",
+                )
             )
             if execution_changed:
                 command = replace(command, verification=VerificationStatus.UNVERIFIED)
@@ -387,7 +410,7 @@ class CatalogEditor(QWidget):
             )
             self._set_dirty(False)
             return True
-        except (ValueError, KeyError) as error:
+        except (ValueError, KeyError, TypeError) as error:
             self.message.setText(str(error))
             return False
 

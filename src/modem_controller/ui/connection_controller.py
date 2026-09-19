@@ -28,7 +28,7 @@ from modem_controller.workflows.connection_search import (
     ConnectionSearchRunner,
 )
 from modem_controller.workflows.diagnostics import DiagnosticRunner
-from modem_controller.workflows.maintenance import MaintenanceRunner
+from modem_controller.workflows.maintenance import MaintenanceRunner, SequenceRunner
 from modem_controller.workflows.sms import SmsInspector, SmsMessage, SmsSendWorkflow
 
 PortFactory = Callable[[], SerialPort]
@@ -309,6 +309,41 @@ class SerialConnectionWorker(QObject):
         self.close()
         self.workflow_finished.emit()
 
+    @Slot(object, object, object)
+    def run_sequence(self, command, profile, values) -> None:
+        port = self._port
+        if port is None or not port.is_open:
+            self.error.emit("No serial connection is open.")
+            self.workflow_finished.emit()
+            return
+        self._response_deadline = None
+        session = self._session(port)
+
+        def execute(step, arguments, timeout):
+            nonlocal session
+            secret = any(p.secret for p in step.parameters)
+            if secret:
+                self._pause_secret_capture()
+                session = self._session(port)
+            payload = step.render(arguments)
+            if step.kind.value == "at":
+                payload += b"\r"
+            return self._exchange(session, payload, timeout=timeout, sensitive=secret)
+
+        try:
+            result = SequenceRunner(
+                execute,
+                cancelled=self._cancel_requested.is_set,
+                wait=self._cancel_requested.wait,
+            ).run(command, profile, values, confirmed=True)
+            self.maintenance_completed.emit(result)
+        except (ValueError, KeyError, RuntimeError) as error:
+            self.error.emit(str(error))
+        finally:
+            values.clear()
+            self.close()
+            self.workflow_finished.emit()
+
     @Slot(str, str)
     def send_sms(self, recipient: str, body: str) -> None:
         port = self._port
@@ -466,6 +501,7 @@ class ConnectionController(QObject):
     _diagnostics_requested = Signal(object)
     _search_requested = Signal(str)
     _maintenance_requested = Signal(object, object)
+    _sequence_requested = Signal(object, object, object)
     _sms_requested = Signal(str, str)
     _sms_read_requested = Signal(int)
     _sms_status_requested = Signal()
@@ -499,6 +535,7 @@ class ConnectionController(QObject):
         self._maintenance_requested.connect(
             self._worker.run_maintenance, Qt.QueuedConnection
         )
+        self._sequence_requested.connect(self._worker.run_sequence, Qt.QueuedConnection)
         self._sms_requested.connect(self._worker.send_sms, Qt.QueuedConnection)
         self._sms_read_requested.connect(self._worker.read_sms, Qt.QueuedConnection)
         self._sms_status_requested.connect(
@@ -555,6 +592,10 @@ class ConnectionController(QObject):
 
     def run_maintenance(self, command: CatalogCommand, values: dict[str, str]) -> None:
         self._maintenance_requested.emit(command, values)
+
+    def run_sequence(self, command, profile, values) -> None:
+        self._cancel_requested.clear()
+        self._sequence_requested.emit(command, profile, values)
 
     def send_sms(self, recipient: str, body: str) -> None:
         self._cancel_requested.clear()

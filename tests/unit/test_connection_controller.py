@@ -110,6 +110,35 @@ def test_paced_credentials_remain_excluded_from_emitted_payloads(qtbot):
     worker.close()
 
 
+def test_sequence_worker_preserves_secret_boundary_and_releases_owner(qtbot):
+    from dataclasses import replace
+
+    from modem_controller.catalog.models import CommandKind, SequenceStep
+
+    profile = load_starter_catalog().profile("generic-at")
+    sequence = replace(
+        profile.command("attention"),
+        id="secret-sequence",
+        kind=CommandKind.SEQUENCE,
+        payload=None,
+        sequence_steps=(SequenceStep("unlock-sim"),),
+    )
+    profile = replace(profile, commands=(*profile.commands, sequence))
+    port = FakePort()
+    worker = SerialConnectionWorker(lambda: port)
+    logs = []
+    worker.transmitted.connect(logs.append)
+    worker.session_received.connect(logs.append)
+    worker.open(SerialSettings(port="COM10"))
+    port.received.append(b"AT+CPIN=1234\r\nOK\r\n")
+    parameters = {"pin": "1234"}
+    worker.run_sequence(sequence, profile, parameters)
+    assert logs == []
+    assert parameters == {}
+    assert port.writes == [(b"AT+CPIN=1234\r", True)]
+    assert not port.is_open
+
+
 def test_worker_confirms_control_bytes_only_after_the_write_succeeds(qtbot) -> None:
     port = FakePort()
     port.open(SerialSettings(port="COM10"))
