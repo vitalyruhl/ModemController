@@ -1,5 +1,10 @@
 # Release notes
 
+## 2.0.2 - catalog navigation
+
+The catalog editor follows the selected modem profile and keeps its command list
+and search visible. Protocol and verification fields are grouped under Advanced.
+
 ## 2.0.1 - desktop feedback corrections
 
 The window title shows only the product version. Terminal output continues

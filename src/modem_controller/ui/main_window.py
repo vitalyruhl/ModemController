@@ -897,6 +897,8 @@ class MainWindow(QMainWindow):
 
     def _show_catalog_editor(self) -> None:
         if self._catalog_editor is not None:
+            if not self._catalog_editor._dirty:
+                self._catalog_editor.select_profile(self._selected_profile().id)
             self._catalog_editor.show()
             self._catalog_editor.raise_()
             return
@@ -904,6 +906,7 @@ class MainWindow(QMainWindow):
         editor.setWindowFlag(Qt.Window)
         editor.directories = dict(self._settings.last_directories)
         editor.favorites = set(self._settings.favorites)
+        editor.select_profile(self._selected_profile().id)
         editor._load_command()
         editor.catalog_changed.connect(self.apply_catalog)
         editor.favorite_changed.connect(self._set_favorite)

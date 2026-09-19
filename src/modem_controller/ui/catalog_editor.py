@@ -6,20 +6,24 @@ import json
 from dataclasses import replace
 from pathlib import Path
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
+    QSplitter,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -63,7 +67,8 @@ class CatalogEditor(QWidget):
         self.favorites: set[str] = set()
         self.setWindowTitle("Catalog editor")
         self.profile_selector = QComboBox(self)
-        self.command_selector = QComboBox(self)
+        self.command_selector = QListWidget(self)
+        self.command_selector.setMinimumWidth(180)
         self.search = QLineEdit(self)
         self.search.setPlaceholderText("Search name, category or command")
         self.label = QLineEdit(self)
@@ -101,14 +106,20 @@ class CatalogEditor(QWidget):
         self.message.setWordWrap(True)
         form = QFormLayout()
         for name, widget in (
-            ("Profile", self.profile_selector),
-            ("Filter", self.search),
-            ("Command", self.command_selector),
             ("Name", self.label),
             ("Category", self.category),
-            ("Kind", self.kind),
             ("Command / exact hex", self.payload),
             ("Help", self.help_text),
+            ("", self.favorite),
+        ):
+            form.addRow(name, widget)
+        self.advanced = QGroupBox("Advanced command settings", self)
+        self.advanced.setCheckable(True)
+        self.advanced.setChecked(False)
+        advanced_body = QWidget(self.advanced)
+        self.advanced_form = QFormLayout(advanced_body)
+        for name, widget in (
+            ("Kind", self.kind),
             ("Sequence steps", self.steps),
             ("Expected response", self.expected_response),
             ("Timeout (seconds)", self.timeout),
@@ -116,17 +127,24 @@ class CatalogEditor(QWidget):
             ("Reference IDs", self.references),
             ("Risk", self.risk),
             ("Verification", self.verification),
-            ("", self.favorite),
             ("Parameters (true/false flags)", self.parameters),
-            ("Shipped notes", self.shipped_notes),
-            ("User notes", self.notes),
         ):
-            form.addRow(name, widget)
+            self.advanced_form.addRow(name, widget)
+        self.parameter_button = QPushButton("Add parameter", advanced_body)
+        self.parameter_button.clicked.connect(self.add_parameter)
+        self.advanced_form.addRow(self.parameter_button)
+        advanced_layout = QVBoxLayout(self.advanced)
+        advanced_layout.addWidget(advanced_body)
+        self.advanced.toggled.connect(advanced_body.setVisible)
+        advanced_body.hide()
+        self.kind.currentTextChanged.connect(self._show_kind_fields)
+        form.addRow(self.advanced)
+        form.addRow("Profile information", self.shipped_notes)
+        form.addRow("My profile notes", self.notes)
         self.save_button = QPushButton("Apply fields", self)
         actions = QHBoxLayout()
         self._navigation_buttons = []
         for label, callback in (
-            ("Add parameter", self.add_parameter),
             ("Duplicate", self.duplicate_selected),
             ("Move up", lambda: self.move_selected(-1)),
             ("Move down", lambda: self.move_selected(1)),
@@ -137,15 +155,26 @@ class CatalogEditor(QWidget):
             button = QPushButton(label, self)
             button.clicked.connect(callback)
             actions.addWidget(button)
-            if label != "Add parameter":
-                self._navigation_buttons.append(button)
+            self._navigation_buttons.append(button)
         layout = QVBoxLayout(self)
+        navigation = QFormLayout()
+        navigation.addRow("Modem profile", self.profile_selector)
+        navigation.addRow("Find command", self.search)
+        layout.addLayout(navigation)
+        self.selection_hint = QLabel(
+            "Choose a command in the list to edit its fields.", self
+        )
+        layout.addWidget(self.selection_hint)
         content = QWidget(self)
         content.setLayout(form)
-        scroll = QScrollArea(self)
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(content)
-        layout.addWidget(scroll)
+        self.field_scroll = QScrollArea(self)
+        self.field_scroll.setWidgetResizable(True)
+        self.field_scroll.setWidget(content)
+        splitter = QSplitter(self)
+        splitter.addWidget(self.command_selector)
+        splitter.addWidget(self.field_scroll)
+        splitter.setSizes([220, 600])
+        layout.addWidget(splitter)
         layout.addWidget(self.save_button)
         discard = QPushButton("Discard field changes", self)
         discard.clicked.connect(self._load_profile)
@@ -155,7 +184,7 @@ class CatalogEditor(QWidget):
         for profile in catalog.profiles:
             self.profile_selector.addItem(profile.name, profile.id)
         self.profile_selector.currentIndexChanged.connect(self._load_profile)
-        self.command_selector.currentIndexChanged.connect(self._load_command)
+        self.command_selector.currentRowChanged.connect(self._load_command)
         self.search.textChanged.connect(self._load_commands)
         self.save_button.clicked.connect(self._save)
         for widget in (
@@ -176,7 +205,16 @@ class CatalogEditor(QWidget):
         self.favorite.toggled.connect(self._mark_dirty)
         self.parameters.itemChanged.connect(self._mark_dirty)
         self._load_profile()
-        self.resize(800, 720)
+        self.resize(920, 620)
+
+    def _show_kind_fields(self) -> None:
+        self.advanced_form.setRowVisible(
+            self.steps, self.kind.currentText() == "sequence"
+        )
+
+    def _command_id(self):
+        item = self.command_selector.currentItem()
+        return item.data(Qt.UserRole) if item else None
 
     def _mark_dirty(self, *args) -> None:
         if not self._loading:
@@ -220,9 +258,10 @@ class CatalogEditor(QWidget):
         )
 
     def select_command(self, command_id: str) -> None:
-        self.command_selector.setCurrentIndex(
-            self.command_selector.findData(command_id)
-        )
+        for row in range(self.command_selector.count()):
+            if self.command_selector.item(row).data(Qt.UserRole) == command_id:
+                self.command_selector.setCurrentRow(row)
+                return
 
     def _profile(self):
         return self.catalog.profile(self.profile_selector.currentData())
@@ -234,7 +273,7 @@ class CatalogEditor(QWidget):
         self._load_commands()
 
     def _load_commands(self) -> None:
-        selected = self.command_selector.currentData()
+        selected = self._command_id()
         self.command_selector.blockSignals(True)
         self.command_selector.clear()
         query = self.search.text().casefold()
@@ -243,21 +282,45 @@ class CatalogEditor(QWidget):
                 query
                 in f"{command.label} {command.category} {command.payload}".casefold()
             ):
-                self.command_selector.addItem(command.label, command.id)
-        index = self.command_selector.findData(selected)
-        if index >= 0:
-            self.command_selector.setCurrentIndex(index)
+                status = "" if command.is_visible else " [not reviewed]"
+                item = QListWidgetItem(f"{command.label}{status}\n{command.category}")
+                item.setData(Qt.UserRole, command.id)
+                item.setToolTip(command.help_text)
+                self.command_selector.addItem(item)
+        self.command_selector.setCurrentRow(0)
+        if selected:
+            self.select_command(selected)
         self.command_selector.blockSignals(False)
         self._load_command()
 
     def _load_command(self) -> None:
         self._loading = True
-        command_id = self.command_selector.currentData()
+        command_id = self._command_id()
+        for widget in (
+            self.label,
+            self.category,
+            self.payload,
+            self.help_text,
+            self.favorite,
+            self.advanced,
+        ):
+            widget.setEnabled(command_id is not None)
         if command_id is None:
+            self.label.clear()
+            self.category.clear()
+            self.payload.clear()
+            self.help_text.clear()
+            self.selection_hint.setText(
+                "No commands match this profile/filter. Profile notes remain editable."
+            )
             self._loading = False
             self._set_dirty(False)
             return
         command = self._profile().command(command_id)
+        self.selection_hint.setText(
+            f"{len(self._profile().commands)} commands in this profile. "
+            "Select one from the list."
+        )
         for widget, value in (
             (self.label, command.label),
             (self.category, command.category),
@@ -273,6 +336,7 @@ class CatalogEditor(QWidget):
         self.help_text.setPlainText(command.help_text)
         self.timeout.setValue(command.timeout_seconds)
         self.kind.setCurrentText(command.kind.value)
+        self._show_kind_fields()
         self.risk.setCurrentText(command.risk.value)
         self.verification.setCurrentText(command.verification.value)
         self.favorite.setChecked(f"{self._profile().id}/{command.id}" in self.favorites)
@@ -312,12 +376,12 @@ class CatalogEditor(QWidget):
     def _save(self) -> bool:
         try:
             profile = self._profile()
-            if self.command_selector.currentData() is None:
+            if self._command_id() is None:
                 self._replace_profile(
                     replace(profile, user_notes=self.notes.toPlainText())
                 )
                 return True
-            old = profile.command(self.command_selector.currentData())
+            old = profile.command(self._command_id())
             parameters = []
             for row in range(self.parameters.rowCount()):
                 values = [
@@ -421,10 +485,10 @@ class CatalogEditor(QWidget):
             return False
 
     def duplicate_selected(self) -> None:
-        if self.command_selector.currentData() is None:
+        if self._command_id() is None:
             return
         profile = self._profile()
-        original = profile.command(self.command_selector.currentData())
+        original = profile.command(self._command_id())
         ids = {c.id for c in profile.commands}
         suffix = 1
         while f"{original.id}-copy-{suffix}" in ids:
@@ -442,11 +506,7 @@ class CatalogEditor(QWidget):
         profile = self._profile()
         commands = list(profile.commands)
         index = next(
-            (
-                i
-                for i, c in enumerate(commands)
-                if c.id == self.command_selector.currentData()
-            ),
+            (i for i, c in enumerate(commands) if c.id == self._command_id()),
             -1,
         )
         if index < 0 or not 0 <= index + offset < len(commands):

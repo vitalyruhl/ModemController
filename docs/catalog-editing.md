@@ -7,6 +7,11 @@ commands. User overlays preserve unchanged fields from future bundled defaults.
 Native imports and executable-field edits remain unverified until separately
 reviewed and explicitly enabled. No editor action opens a port or sends bytes.
 
+The editor opens on the profile selected in the main window. The profile selector,
+search and command list stay visible while the form scrolls. Select another button
+in the list on the left. Common fields appear first; expand **Advanced** for protocol
+details, verification, sequence steps and parameter definitions.
+
 PIN/password values belong only in transient secret prompts. Literal credential
 commands are rejected from native import/export and persisted catalog changes.
 If saving fails, closing requires retry, cancellation or deliberate discard.
