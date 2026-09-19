@@ -95,6 +95,56 @@ def same_provenance(left: dict, right: dict) -> bool:
     }
 
 
+def copy_help(bundle: Path) -> None:
+    """Copy user documentation and PDF manuals, adapting repository-only links."""
+    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    readme = readme.replace("](docs/", "](help/").replace(
+        "](LICENSE)", "](LICENSE.txt)"
+    )
+    (bundle / "README.md").write_text(readme, encoding="utf-8")
+    help_directory = bundle / "help"
+    help_directory.mkdir()
+    for name in (
+        "README.md",
+        "console.md",
+        "catalog-editing.md",
+        "privacy.md",
+        "device-support.md",
+        "portable-build.md",
+        "third-party-notices.md",
+        "versioning.md",
+        "release-notes.md",
+        "local-tools.md",
+        "ras-collection.md",
+        "acceptance.md",
+        "development.md",
+        "reference/at-commands.md",
+        "reference/legacy-command-inventory.md",
+        "reference/gsm-sms-initialization.md",
+    ):
+        text = (PROJECT_ROOT / "docs" / name).read_text(encoding="utf-8")
+        if name == "third-party-notices.md":
+            text = text.replace("](licenses/", "](../licenses/")
+        elif name == "README.md":
+            text = text.replace(
+                "The [legacy screenshots](images/) "
+                "illustrate the previous application.",
+                "Legacy screenshots remain in the source repository.",
+            )
+        destination = help_directory / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(text, encoding="utf-8")
+    manuals = PROJECT_ROOT / "docs" / "reference" / "modems"
+    for source in sorted(manuals.rglob("*.pdf")):
+        if not source.resolve().is_relative_to(manuals.resolve()):
+            raise ValueError("Manual path escapes the documentation directory")
+        destination = (
+            help_directory / "reference" / "modems" / source.relative_to(manuals)
+        )
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+
+
 def build(*, candidate: bool = False) -> Path:
     build_started_at = datetime.now(UTC).isoformat()
     info = build_info(built_at_utc=build_started_at)
@@ -138,38 +188,7 @@ def build(*, candidate: bool = False) -> Path:
     )
     SettingsStore(bundle).save(Settings())
     shutil.copy2(PROJECT_ROOT / "LICENSE", bundle / "LICENSE.txt")
-    help_directory = bundle / "help"
-    help_directory.mkdir()
-    for name in (
-        "console.md",
-        "catalog-editing.md",
-        "privacy.md",
-        "device-support.md",
-        "portable-build.md",
-        "third-party-notices.md",
-        "versioning.md",
-        "release-notes.md",
-        "local-tools.md",
-        "ras-collection.md",
-        "acceptance.md",
-        "development.md",
-        "reference/at-commands.md",
-        "reference/legacy-command-inventory.md",
-        "reference/gsm-sms-initialization.md",
-    ):
-        text = (PROJECT_ROOT / "docs" / name).read_text(encoding="utf-8")
-        if name == "third-party-notices.md":
-            text = text.replace("](licenses/", "](../licenses/")
-        elif name == "reference/at-commands.md":
-            text = text.replace(
-                "The [documentation index](../README.md) lists supplementary "
-                "manufacturer manuals.",
-                "Supplementary manufacturer manuals remain in the source "
-                "repository and are not part of the portable runtime.",
-            )
-        destination = help_directory / name
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_text(text, encoding="utf-8")
+    copy_help(bundle)
     shutil.copytree(PROJECT_ROOT / "docs" / "licenses", bundle / "licenses")
     for metadata in bundle.rglob("modem_controller_rs232-*.dist-info"):
         for item in metadata.iterdir():

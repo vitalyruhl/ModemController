@@ -10,6 +10,31 @@ build_portable = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(build_portable)
 
 
+def test_portable_help_contains_manuals_and_working_readme_links(tmp_path):
+    import re
+
+    root = build_portable.PROJECT_ROOT
+    (tmp_path / "LICENSE.txt").write_bytes((root / "LICENSE").read_bytes())
+    build_portable.copy_help(tmp_path)
+    sources = root / "docs" / "reference" / "modems"
+    manuals = list(sources.rglob("*.pdf"))
+    assert manuals
+    for source in manuals:
+        target = (
+            tmp_path / "help" / "reference" / "modems" / source.relative_to(sources)
+        )
+        assert target.read_bytes() == source.read_bytes()
+    assert not list((tmp_path / "help").rglob("*.exe"))
+    for document in (tmp_path / "README.md", tmp_path / "help" / "README.md"):
+        text = document.read_text(encoding="utf-8")
+        links = re.findall(r"\]\(([^)]+)\)", text)
+        assert links
+        for link in links:
+            if "://" not in link:
+                assert (document.parent / link.split("#")[0]).exists(), link
+    assert "](help/console.md)" in (tmp_path / "README.md").read_text(encoding="utf-8")
+
+
 def test_portable_build_uses_onedir_and_collects_application_data() -> None:
     command = build_portable.build_command()
 

@@ -51,7 +51,10 @@ customizations and allows new unmodified defaults to merge. Do not copy old runt
 folders. An optional remembered external settings directory remains authoritative.
 
 The build uses an explicit package-resource whitelist. Personal source settings,
-logs, modem archives, drivers, local plans and governance are excluded. Help,
+logs, drivers, local plans and governance are excluded. The root `README.md` links
+to the bundled `help/` documentation. PDF modem manuals from
+`docs/reference/modems/` are copied to `help/reference/modems/`, preserving their
+subfolders; non-PDF files such as driver installers are excluded. Help,
 project license, third-party notices and a SHA-256 contents manifest are included.
 The notice pack records upstream provenance; public distribution and clean-target
 acceptance are separate from a successful local build.

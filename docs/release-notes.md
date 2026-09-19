@@ -1,5 +1,12 @@
 # Release notes
 
+## 2.1.1 - portable documentation completeness
+
+The portable root includes the main README with working links into `help/`.
+The documentation index and PDF modem manuals are bundled under
+`help/reference/modems/`, preserving their source subfolders. Driver installers
+remain excluded. Application and modem behavior are unchanged.
+
 ## 2.1.0 - explicit command execution choices
 
 The catalog editor exposes Direct execution/send beside Favorite and persists

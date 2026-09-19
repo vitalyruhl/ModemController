@@ -29,5 +29,6 @@ flyer does not establish command or firmware compatibility.
 Removed YAT examples, VB.NET material, flyers, driver information and incident
 attachments remain in Git history after the user-directed reference cleanup.
 The [legacy screenshots](images/) illustrate the previous application.
-Reference drivers and manuals are never installed or included in portable runtime
-payloads automatically. Original personal incident notes are not test fixtures.
+The portable package includes these PDF manuals under `help/reference/modems/`.
+Driver installers are excluded and never run by the application.
+Original personal incident notes are not test fixtures.
