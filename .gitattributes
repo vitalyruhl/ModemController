@@ -1,4 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+# Windows command launchers require CRLF for reliable label jumps.
+*.cmd text eol=crlf
 # Preserve upstream license bytes and their recorded SHA-256 provenance.
 docs/licenses/** -text

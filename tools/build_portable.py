@@ -148,6 +148,7 @@ def build(*, candidate: bool = False) -> Path:
         "local-tools.md",
         "ras-collection.md",
         "acceptance.md",
+        "development.md",
         "reference/at-commands.md",
     ):
         text = (PROJECT_ROOT / "docs" / name).read_text(encoding="utf-8")

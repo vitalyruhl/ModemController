@@ -1,16 +1,32 @@
 # Portable Windows build
 
-Build on Windows x64 with the locked environment:
+On Windows x64, double-click **`build-portable.cmd`** in the repository root.
+It prepares the locked environment and builds the portable folder, ZIP and checksum.
+For a terminal run that returns without pausing:
 
 ```powershell
-uv sync --frozen
-uv run python tools/build_portable.py
+.\build-portable.cmd --no-pause
 ```
 
 The recipe creates a dated folder and ZIP in `dist/`. Unpack the entire folder;
 start `ModemController.exe` for the desktop or `ModemConsole.exe` in PowerShell.
 Python is bundled. `_internal` and `_console` contain runtime files and must stay
 beside the executables.
+
+### Startup error: Python DLL cannot be loaded
+
+An EXE under `build\pyinstaller\ModemController\` is an intermediate build output.
+It does not have the adjacent `_internal\python313.dll` runtime from the finished
+bundle and must not be used to start the application.
+
+Use `dist\ModemController-<version>-<source>-<timestamp>\ModemController.exe`, or
+fully extract the matching ZIP and launch the EXE inside that extracted folder.
+Do not move only the EXE, run it inside the ZIP preview, or download individual
+DLLs. Keep the entire portable folder together. If a fully extracted package still
+fails, verify its original ZIP checksum and check whether security software
+quarantined a runtime file.
+
+Build prerequisites and source-run commands are in [development.md](development.md).
 
 `settings.json`, `generic-at.json` and `device-profiles.json` are directly beside
 the executables. The default log destination is also this folder, but logging
