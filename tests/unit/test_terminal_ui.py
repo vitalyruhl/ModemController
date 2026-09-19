@@ -10,6 +10,18 @@ from modem_controller.ui.session_log import LogMode
 from modem_controller.ui.terminal_view import TerminalDirection, TerminalWorkspace
 
 
+def test_secret_input_is_transient_and_not_retained_in_entries(qtbot) -> None:
+    terminal = TerminalWorkspace()
+    qtbot.addWidget(terminal)
+    terminal.command_input.setText("AT+CPIN=1234")
+    assert terminal.submit_text()
+    assert terminal.command_input.text() == ""
+    assert b"1234" not in repr(terminal.entries).encode()
+    terminal.hex_input.setText("41 54 2b 43 50 49 4e 3d 31 32 33 34 0d")
+    assert terminal.submit_hex()
+    assert b"1234" not in repr(terminal.entries).encode()
+
+
 def test_startup_and_profile_selection_do_not_emit_send_intents(qtbot) -> None:
     window = MainWindow()
     qtbot.addWidget(window)

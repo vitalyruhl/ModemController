@@ -3,6 +3,20 @@ from pathlib import Path
 from modem_controller.ui.session_log import LogMode, SessionLog
 
 
+def test_pin_and_fragmented_echo_are_replaced_by_a_gap(tmp_path: Path) -> None:
+    log = SessionLog()
+    path = tmp_path / "privacy.log"
+    log.configure(path, enabled=True, mode=LogMode.VERBOSE)
+    log.record_sent(b"AT+CPIN=1234\r")
+    log.record_received(b"AT+CP")
+    log.record_received(b"IN=1234\r\nOK\r\n")
+    log.close()
+    saved = path.read_text()
+    assert "1234" not in saved
+    assert "31 32 33 34" not in saved
+    assert "CAPTURE GAP" in saved
+
+
 def test_normal_log_records_text_payloads(tmp_path: Path) -> None:
     path = tmp_path / "session.log"
     log = SessionLog()

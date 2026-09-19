@@ -18,6 +18,7 @@ from modem_controller.transport.capture import (
     CaptureDirection,
     CaptureRecord,
 )
+from modem_controller.transport.privacy import contains_secret_input
 
 
 class FlowControl(str, Enum):
@@ -250,6 +251,7 @@ class SerialPort:
         self._unreported_capture_bytes = 0
         self._backend: SerialBackend | None = None
         self._settings: SerialSettings | None = None
+        self._secret_capture_paused = False
         self._lock = RLock()
 
     @property
@@ -283,6 +285,7 @@ class SerialPort:
 
             self._backend = backend
             self._settings = settings
+            self._secret_capture_paused = False
             self._queue_event(SerialEventKind.CONNECTED, detail=settings.port)
 
     def close(self) -> None:
@@ -329,8 +332,15 @@ class SerialPort:
                 raise SerialIOError(f"could not read serial data: {error}") from error
 
             if data:
-                self._record(CaptureDirection.RECEIVED, data)
-                self._queue_event(SerialEventKind.RECEIVED, data=data)
+                if self._secret_capture_paused:
+                    self._capture.record_sensitive_gap(len(data))
+                    self._queue_event(
+                        SerialEventKind.SENSITIVE_TRANSMISSION,
+                        detail="Sensitive receive gap; reconnect to resume capture.",
+                    )
+                else:
+                    self._record(CaptureDirection.RECEIVED, data)
+                    self._queue_event(SerialEventKind.RECEIVED, data=data)
             return data
 
     def write(self, data: bytes | bytearray | memoryview) -> int:
@@ -341,6 +351,11 @@ class SerialPort:
 
         return self._write(data, sensitive=True)
 
+    def pause_sensitive_capture(self) -> None:
+        """Suppress payload capture until reconnect; reads still serve the session."""
+        with self._lock:
+            self._secret_capture_paused = True
+
     def _write(self, data: bytes | bytearray | memoryview, *, sensitive: bool) -> int:
         if not isinstance(data, bytes | bytearray | memoryview):
             raise TypeError("data must be bytes-like")
@@ -350,6 +365,9 @@ class SerialPort:
 
         with self._lock:
             backend = self._require_backend()
+            if contains_secret_input(payload):
+                self._secret_capture_paused = True
+            sensitive = sensitive or self._secret_capture_paused
             try:
                 written = backend.write(payload)
             except (OSError, serial.SerialException) as error:

@@ -9,6 +9,7 @@ from enum import Enum
 from typing import Protocol
 
 from modem_controller.protocol.framing import AtFrame, AtFramer, FrameKind
+from modem_controller.transport.privacy import contains_secret_input
 from modem_controller.transport.serial_port import PortNotOpenError
 
 
@@ -92,6 +93,7 @@ class _PendingExchange:
     unsolicited: list[bytes] = field(default_factory=list)
     prompt_received: bool = False
     prompt_payload_submitted: bool = False
+    secret: bool = False
 
     def snapshot(
         self,
@@ -100,13 +102,13 @@ class _PendingExchange:
         final_result: bytes | None = None,
     ) -> AtExchange:
         return AtExchange(
-            command=self.command,
+            command=b"" if self.secret else self.command,
             started_at=self.started_at,
             deadline_at=self.deadline_at,
-            frames=tuple(self.frames),
-            response_lines=tuple(self.response_lines),
-            command_echoes=tuple(self.command_echoes),
-            unsolicited=tuple(self.unsolicited),
+            frames=() if self.secret else tuple(self.frames),
+            response_lines=() if self.secret else tuple(self.response_lines),
+            command_echoes=() if self.secret else tuple(self.command_echoes),
+            unsolicited=() if self.secret else tuple(self.unsolicited),
             prompt_received=self.prompt_received,
             outcome=outcome,
             final_result=final_result,
@@ -144,6 +146,7 @@ class AtSession:
         self._discarded_frames: list[AtFrame] = []
         self._resynchronization_started_at: float | None = None
         self._last_resynchronization_data_at: float | None = None
+        self._secret_session = False
 
     @property
     def state(self) -> SessionState:
@@ -156,7 +159,12 @@ class AtSession:
         return self._pending.snapshot()
 
     def start(
-        self, command: bytes, *, timeout: timedelta, sensitive: bool = False
+        self,
+        command: bytes,
+        *,
+        timeout: timedelta,
+        sensitive: bool = False,
+        redact_evidence: bool = False,
     ) -> AtExchange:
         """Write a command exactly once and claim exclusive ownership until it ends."""
 
@@ -177,13 +185,16 @@ class AtSession:
             raise SessionDisconnectedError("serial transport is not connected")
 
         started_at = self._clock()
+        secret = redact_evidence or contains_secret_input(command)
+        self._secret_session = self._secret_session or secret
         pending = _PendingExchange(
             command=command,
             started_at=started_at,
             deadline_at=started_at + timeout.total_seconds(),
+            secret=secret,
         )
         try:
-            written = self._write(command, sensitive=sensitive)
+            written = self._write(command, sensitive=sensitive or secret)
         except PortNotOpenError as error:
             self._state = SessionState.DISCONNECTED
             raise SessionDisconnectedError("serial transport disconnected") from error
@@ -352,7 +363,9 @@ class AtSession:
     def _discard_for_resynchronization(self, data: bytes) -> None:
         if not data:
             return
-        self._discarded_frames.extend(self._framer.feed(data))
+        frames = self._framer.feed(data)
+        if not self._secret_session:
+            self._discarded_frames.extend(frames)
         self._last_resynchronization_data_at = self._clock()
 
     def _write(self, data: bytes, *, sensitive: bool) -> int:

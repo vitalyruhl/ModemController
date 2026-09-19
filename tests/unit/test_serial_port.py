@@ -132,6 +132,25 @@ def test_sensitive_write_keeps_bytes_out_of_capture_and_events() -> None:
     assert "secret" not in event.detail
 
 
+def test_pin_assignment_suppresses_capture_and_fragmented_echo_until_reconnect() -> (
+    None
+):
+    backend = FakeSerialBackend()
+    port = make_port(backend)
+    open_port(port)
+    port.write(b"AT+CPIN=1234\r")
+    for fragment in (b"AT+CP", b"IN=1234\r\n", b"OK\r\n"):
+        backend.received.extend(fragment)
+        assert port.read_available() == fragment
+    assert port.capture.snapshot() == ()
+    assert port.capture.sensitive_gaps == 4
+    assert all(event.data == b"" for event in port.drain_events())
+    port.close()
+    open_port(port)
+    port.write(b"AT\r")
+    assert port.capture.snapshot()[-1].data == b"AT\r"
+
+
 def test_open_applies_control_line_and_flow_control_policy() -> None:
     backend = FakeSerialBackend()
     port = make_port(backend)

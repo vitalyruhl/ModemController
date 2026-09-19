@@ -22,6 +22,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from modem_controller.transport.privacy import contains_secret_input
+
 
 class DisplayMode(str, Enum):
     TEXT = "Text"
@@ -43,7 +45,6 @@ class TerminalEntry:
     force_hex: bool = False
 
 
-_SENSITIVE_COMMAND = re.compile(r"^AT\+(?:CPIN|CLCK|CPWD)\b", re.IGNORECASE)
 _TERMINATORS = {"None": b"", "CR": b"\r", "LF": b"\n", "CRLF": b"\r\n"}
 
 
@@ -173,13 +174,12 @@ class TerminalWorkspace(QWidget):
         if not command:
             return False
         terminator = self.selected_terminator
-        sensitive = bool(_SENSITIVE_COMMAND.match(command))
+        sensitive = contains_secret_input(command.encode("ascii", errors="replace"))
         self.append_transmitted(
             command.encode("ascii", errors="replace") + terminator, sensitive=sensitive
         )
         self.text_submitted.emit(command, terminator, sensitive)
-        if not sensitive:
-            self.command_input.clear()
+        self.command_input.clear()
         self.validation_message.clear()
         return True
 
@@ -192,7 +192,7 @@ class TerminalWorkspace(QWidget):
         except ValueError as error:
             self.validation_message.setText(str(error))
             return False
-        self.append_transmitted(payload)
+        self.append_transmitted(payload, sensitive=contains_secret_input(payload))
         self.bytes_submitted.emit(payload)
         self.hex_input.clear()
         self.validation_message.clear()
@@ -244,7 +244,7 @@ class TerminalWorkspace(QWidget):
         self._entries.append(
             TerminalEntry(
                 direction=direction,
-                data=bytes(data),
+                data=b"" if sensitive else bytes(data),
                 sensitive=sensitive,
                 force_hex=force_hex,
             )

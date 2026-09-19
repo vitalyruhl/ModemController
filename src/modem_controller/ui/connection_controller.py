@@ -16,6 +16,7 @@ from modem_controller.protocol.at_session import (
     AtSessionError,
     ExchangeOutcome,
 )
+from modem_controller.transport.privacy import contains_secret_input
 from modem_controller.transport.serial_port import (
     FlowControl,
     SerialPort,
@@ -42,10 +43,14 @@ class _ObservedSessionTransport:
         *,
         transmitted: Callable[[bytes], None],
         received: Callable[[bytes], None],
+        suppress_capture: bool = False,
     ) -> None:
         self._port = port
         self._transmitted = transmitted
         self._received = received
+        self._secret = suppress_capture
+        if suppress_capture and hasattr(port, "pause_sensitive_capture"):
+            port.pause_sensitive_capture()
 
     @property
     def is_open(self) -> bool:
@@ -53,7 +58,7 @@ class _ObservedSessionTransport:
 
     def read_available(self, max_bytes: int = 4096) -> bytes:
         payload = self._port.read_available()
-        if payload:
+        if payload and not self._secret:
             self._received(payload)
         return payload
 
@@ -64,11 +69,13 @@ class _ObservedSessionTransport:
         return self._write(payload, sensitive=True)
 
     def _write(self, payload: bytes, *, sensitive: bool) -> int:
+        self._secret = self._secret or contains_secret_input(payload)
+        sensitive = sensitive or self._secret
         if sensitive:
             written = self._port.write_sensitive(payload)
         else:
             written = self._port.write(payload)
-        if written:
+        if written and not self._secret:
             self._transmitted(payload[:written])
         return written
 
@@ -89,6 +96,7 @@ class SerialConnectionWorker(QObject):
     sms_completed = Signal(object)
     sms_status_completed = Signal(object)
     workflow_finished = Signal()
+    capture_gap = Signal(str)
 
     def __init__(
         self,
@@ -101,6 +109,7 @@ class SerialConnectionWorker(QObject):
         self._port: SerialPort | None = None
         self._poll_timer: QTimer | None = None
         self._cancel_requested = cancel_requested or Event()
+        self._secret = False
 
     @Slot(object)
     def open(self, settings: SerialSettings) -> None:
@@ -112,6 +121,7 @@ class SerialConnectionWorker(QObject):
             self.error.emit(str(error))
             return
         self._port = port
+        self._secret = False
         self._ensure_poll_timer().start(25)
         self.connected.emit(_format_settings(settings))
 
@@ -128,14 +138,27 @@ class SerialConnectionWorker(QObject):
 
     @Slot(bytes, bool)
     def send(self, payload: bytes, sensitive: bool) -> None:
-        if self._write(payload, sensitive=sensitive):
+        if sensitive or contains_secret_input(payload):
+            self._pause_secret_capture()
+        if self._write(payload, sensitive=self._secret) and not self._secret:
             self.transmitted.emit(payload)
 
     @Slot(bytes)
     def send_control_bytes(self, payload: bytes) -> None:
-        if self._write(payload, sensitive=False):
+        if contains_secret_input(payload):
+            self._pause_secret_capture()
+        if self._write(payload, sensitive=self._secret) and not self._secret:
             self.transmitted.emit(payload)
             self.control_bytes_sent.emit(payload)
+
+    def _pause_secret_capture(self) -> None:
+        if not self._secret:
+            self.capture_gap.emit(
+                "Sensitive input/echo omitted; reconnect to resume capture."
+            )
+        self._secret = True
+        if self._port is not None and hasattr(self._port, "pause_sensitive_capture"):
+            self._port.pause_sensitive_capture()
 
     def _write(self, payload: bytes, *, sensitive: bool) -> bool:
         port = self._port
@@ -164,7 +187,7 @@ class SerialConnectionWorker(QObject):
             self.error.emit(str(error))
             self.close()
             return
-        if data:
+        if data and not self._secret:
             self.received.emit(data)
 
     @Slot(object)
@@ -214,11 +237,15 @@ class SerialConnectionWorker(QObject):
             self.workflow_finished.emit()
             return
         try:
+            secret = any(parameter.secret for parameter in command.parameters)
+            if secret:
+                self._pause_secret_capture()
             result = MaintenanceRunner(
                 lambda payload: self._exchange(
                     self._session(port),
                     payload,
                     timeout=command.timeout_seconds,
+                    sensitive=secret,
                 )
             ).run(command, values, confirmed=True)
         except ValueError as error:
@@ -290,16 +317,27 @@ class SerialConnectionWorker(QObject):
                 port,
                 transmitted=self.transmitted.emit,
                 received=self.session_received.emit,
+                suppress_capture=self._secret,
             ),
             clock=monotonic,
         )
 
     def _exchange(
-        self, session: AtSession, payload: bytes, *, timeout: float
+        self,
+        session: AtSession,
+        payload: bytes,
+        *,
+        timeout: float,
+        sensitive: bool = False,
     ) -> AtExchange:
         started_at = monotonic()
         try:
-            session.start(payload, timeout=timedelta(seconds=timeout))
+            session.start(
+                payload,
+                timeout=timedelta(seconds=timeout),
+                sensitive=sensitive,
+                redact_evidence=sensitive,
+            )
             while True:
                 if self._cancel_requested.is_set():
                     return session.cancel()
@@ -359,6 +397,7 @@ class ConnectionController(QObject):
     sms_completed = Signal(object)
     sms_status_completed = Signal(object)
     workflow_finished = Signal()
+    capture_gap = Signal(str)
 
     _open_requested = Signal(object)
     _close_requested = Signal()
@@ -418,6 +457,7 @@ class ConnectionController(QObject):
         self._worker.sms_completed.connect(self.sms_completed)
         self._worker.sms_status_completed.connect(self.sms_status_completed)
         self._worker.workflow_finished.connect(self.workflow_finished)
+        self._worker.capture_gap.connect(self.capture_gap)
         self._thread.start()
 
     def open(self, settings: SerialSettings) -> None:

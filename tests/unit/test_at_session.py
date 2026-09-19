@@ -63,6 +63,19 @@ def make_session() -> tuple[AtSession, FakeTransport, FakeClock]:
     )
 
 
+def test_pin_session_snapshots_do_not_retain_secret_echo_or_command() -> None:
+    session, transport, _ = make_session()
+    started = session.start(b"AT+CPIN=1234\r", timeout=timedelta(seconds=1))
+    assert b"1234" not in repr(started).encode()
+    transport.incoming.extend((b"AT+CP", b"IN=1234\r\n", b"OK\r\n"))
+    session.poll()
+    session.poll()
+    result = session.poll()
+    assert result.final_result == b"OK"
+    assert b"1234" not in repr(session.drain_completed()).encode()
+    assert result.response_lines == result.command_echoes == ()
+
+
 def test_exchange_handles_echo_response_urc_and_standalone_final_result() -> None:
     session, transport, _ = make_session()
     session.start(b"AT+CSQ\r", timeout=timedelta(seconds=2))

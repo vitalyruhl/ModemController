@@ -269,6 +269,8 @@ class MainWindow(QMainWindow):
         controller.received.connect(self._received)
         controller.session_received.connect(self._log_received)
         controller.transmitted.connect(self._log_transmitted)
+        if hasattr(controller, "capture_gap"):
+            controller.capture_gap.connect(self._capture_gap)
         controller.control_bytes_sent.connect(self._show_control_bytes_sent)
         controller.error.connect(self._show_connection_error)
         controller.diagnostics_completed.connect(self._show_diagnostics)
@@ -299,6 +301,10 @@ class MainWindow(QMainWindow):
 
     def _log_received(self, payload: bytes) -> None:
         self._record_log(self._session_log.record_received, payload)
+
+    def _capture_gap(self, message: str) -> None:
+        self.terminal.append_info(message)
+        self._record_log(self._session_log.record_gap, message)
 
     def _run_diagnostics(self) -> None:
         self.set_workflow_active(True)

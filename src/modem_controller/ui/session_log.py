@@ -6,6 +6,8 @@ from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 
+from modem_controller.transport.privacy import contains_secret_input
+
 
 class LogMode(str, Enum):
     NORMAL = "normal"
@@ -23,6 +25,7 @@ class SessionLog:
         self._path: Path | None = None
         self._mode = LogMode.NORMAL
         self._enabled = False
+        self._secret = False
 
     @property
     def path(self) -> Path | None:
@@ -49,6 +52,7 @@ class SessionLog:
         self._enabled = False
 
     def record_connected(self, settings: str) -> None:
+        self._secret = False
         self._record_verbose("CONNECTED", settings)
 
     def record_connect_requested(self, settings: str) -> None:
@@ -61,6 +65,9 @@ class SessionLog:
         self._record_verbose("DISCONNECT REQUESTED", "")
 
     def record_preset_requested(self, label: str, payload: bytes) -> None:
+        if contains_secret_input(payload):
+            self.record_gap("Sensitive preset omitted; reconnect to resume capture.")
+            return
         self._record_verbose("PRESET REQUESTED", f"{label}: {payload.hex(' ').upper()}")
 
     def record_terminal_cleared(self) -> None:
@@ -73,9 +80,17 @@ class SessionLog:
         self._record_payload("RX", payload)
 
     def record_error(self, message: str) -> None:
-        self._write("ERROR", message)
+        self._write("ERROR", "Sensitive operation failed." if self._secret else message)
+
+    def record_gap(self, message: str) -> None:
+        self._secret = True
+        self._write("CAPTURE GAP", message)
 
     def _record_payload(self, direction: str, payload: bytes) -> None:
+        if contains_secret_input(payload) and not self._secret:
+            self.record_gap("Sensitive input/echo omitted until reconnect.")
+        if self._secret:
+            return
         self._write(direction, repr(payload.decode("utf-8", errors="replace")))
         if self._mode is LogMode.VERBOSE:
             self._write(f"{direction} HEX", payload.hex(" ").upper())

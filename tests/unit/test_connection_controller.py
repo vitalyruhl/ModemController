@@ -51,15 +51,15 @@ def test_worker_opens_sends_receives_and_closes_without_ui_thread_io(qtbot) -> N
 
     worker.open(SerialSettings(port="COM10", baud_rate=19200))
     worker.send(b"AT\r", False)
-    worker.send(b"AT+CPIN=1234\r", True)
     port.received.append(b"AT\r\r\nOK\r\n")
     worker.poll()
+    worker.send(b"AT+CPIN=1234\r", True)
     worker.close()
 
     assert connected == ["COM10 | 19200 Bd | 8N1 | None"]
     assert port.writes == [(b"AT\r", False), (b"AT+CPIN=1234\r", True)]
     assert received == [b"AT\r\r\nOK\r\n"]
-    assert transmitted == [b"AT\r", b"AT+CPIN=1234\r"]
+    assert transmitted == [b"AT\r"]
     assert not port.is_open
 
 
@@ -190,3 +190,37 @@ def test_worker_records_full_sms_wire_payloads_and_responses(qtbot) -> None:
 
     assert transmitted == [b'AT+CMGS="491234567"\r', b"evidence text\x1a"]
     assert received == [b"\r\n> ", b"\r\n+CMGS: 7\r\nOK\r\n"]
+
+
+def test_guided_pin_never_reaches_log_signals_or_result(qtbot) -> None:
+    port = FakePort()
+    port.open(SerialSettings(port="FAKE"))
+    port.received.extend((b"AT+CP", b"IN=1234\r\nOK\r\n"))
+    worker = SerialConnectionWorker(lambda: port)
+    worker._port = port
+    sent, received, results = [], [], []
+    worker.transmitted.connect(sent.append)
+    worker.session_received.connect(received.append)
+    worker.maintenance_completed.connect(results.append)
+    command = load_starter_catalog().profile("generic-at").command("unlock-sim")
+    worker.run_maintenance(command, {"pin": "1234"})
+    assert port.writes == [(b"AT+CPIN=1234\r", True)]
+    assert sent == received == []
+    assert b"1234" not in repr(results).encode()
+    assert not port.is_open
+
+
+def test_manual_hex_pin_suppresses_late_received_echo(qtbot) -> None:
+    port = FakePort()
+    port.open(SerialSettings(port="FAKE"))
+    worker = SerialConnectionWorker(lambda: port)
+    worker._port = port
+    sent, received = [], []
+    worker.transmitted.connect(sent.append)
+    worker.received.connect(received.append)
+    worker.send(bytes.fromhex("41 54 2b 43 50 49 4e 3d 31 32 33 34 0d"), False)
+    port.received.extend((b"AT+CP", b"IN=1234\r\n", b"OK\r\n"))
+    for _ in range(3):
+        worker.poll()
+    assert sent == received == []
+    assert port.writes[0][1] is True
