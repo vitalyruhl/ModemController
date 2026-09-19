@@ -15,6 +15,11 @@ and state-changing AT buttons prepare editable commands without sending; SMS has
 a separate preparation button. Categories use buttons, command spacing is fixed,
 and the terminal input has more horizontal space.
 
+The desktop Tools editor is replaced by a small plugin launcher. Each plugin has
+its own folder under `plugins` and a `plugin.json` containing its name, program
+and optional arguments. The RAS collector uses its own selection window. Plugins
+own their lifetime and any UAC request; the modem application does not elevate.
+
 ## 2.0.0 - local candidate preparation
 
 Python rewrite with an English desktop, shared serial terminal, reviewed modem

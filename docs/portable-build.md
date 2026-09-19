@@ -43,8 +43,10 @@ Malformed sidecars are preserved and reported; the desktop shows bundled default
 for that launch. No file is silently corrected or overwritten at startup.
 
 To upgrade, extract the new bundle into a separate folder and copy your three JSON
-files into it, replacing only the fresh sidecars. Also preserve `tools.json` if
-you customized optional tool definitions; review their scripts again. Keep backups. This preserves
+files into it, replacing only the fresh sidecars. Preserve your custom plugin
+subdirectories under `plugins/`; keep backups of customized bundled plugins before
+replacing them. The old `tools.json` registry is no longer used by the desktop.
+This preserves
 customizations and allows new unmodified defaults to merge. Do not copy old runtime
 folders. An optional remembered external settings directory remains authoritative.
 

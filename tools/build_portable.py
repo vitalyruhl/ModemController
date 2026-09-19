@@ -121,13 +121,9 @@ def build(*, candidate: bool = False) -> Path:
     shutil.copy2(stage / "ModemConsole" / "ModemConsole.exe", bundle)
     shutil.copytree(stage / "ModemConsole" / "_console", bundle / "_console")
     seed_catalog_files(bundle)
-    shutil.copy2(
-        PROJECT_ROOT / "src" / "modem_controller" / "tool_data" / "tools.json",
-        bundle / "tools.json",
-    )
-    shutil.copy2(
-        PROJECT_ROOT / "src" / "modem_controller" / "tool_data" / "ras-collect.ps1",
-        bundle / "ras-collect.ps1",
+    shutil.copytree(
+        PROJECT_ROOT / "src" / "modem_controller" / "tool_data" / "plugins",
+        bundle / "plugins",
     )
     (bundle / "build-info.json").write_text(
         json.dumps(info, indent=2) + "\n", encoding="utf-8"
@@ -150,6 +146,7 @@ def build(*, candidate: bool = False) -> Path:
         "acceptance.md",
         "development.md",
         "reference/at-commands.md",
+        "reference/legacy-command-inventory.md",
     ):
         text = (PROJECT_ROOT / "docs" / name).read_text(encoding="utf-8")
         if name == "third-party-notices.md":

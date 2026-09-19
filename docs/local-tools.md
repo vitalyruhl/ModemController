@@ -1,37 +1,44 @@
-# Reviewed local tools
+# Portable plugins
 
-Choose **Local tools...** to release the application's serial connection and open
-the optional tools dialog. No script runs on startup, import, profile selection or
-reconnect. Import a JSON registry, inspect the script preview, interpreter,
-arguments, working directory, effects and limits, then confirm review and click
-**Run selected tool**. Every import/restart requires review. Script, interpreter
-or definition changes invalidate the review fingerprint. There is no script editor.
+Choose **Plugins...**, select a plugin and click **Start plugin**. The application
+releases its serial connection before opening the list. Opening the list, selecting
+an entry or starting the modem application never executes a plugin. Each plugin
+opens its own interface and owns its options, output, progress and lifetime.
+Closing the launcher or modem application does not stop an already started plugin.
 
-Definitions in `tools.json` have `schema_version: 1` and a `tools` list. Each tool
-has `id`, `label`, `script`, `kind` (python/ps1/cmd), `interpreter`, `arguments`,
-`working_directory`, `effects`, `serial_requirement`, `timeout_seconds` and
-`output_limit`. Relative paths resolve beside the registry. Unknown/serial tools
-require release of the application port; the desktop releases it for all tools.
-Arguments are a JSON list of individual strings, without secret values.
+Place each plugin in its own folder beside the portable executable:
 
-Windows PowerShell 5.1 is the PS1 default. No execution-policy bypass, elevation,
-download or interpreter installation occurs. Python requires an explicitly
-selected installed executable; the portable app's private runtime is not an
-arbitrary script interpreter. CMD metacharacters are rejected before invocation.
-CMD is inherently a shell; only the reviewed script path and restricted literal
-arguments are passed to it. Python and PS1 receive separate argument values.
+```text
+plugins/
+  my-tool/
+    plugin.json
+    MyTool.exe
+```
 
-Local scripts are trusted executable code, not a sandbox. A read-only label does
-not enforce read-only behavior. Cancellation cannot undo effects. Execution runs
-outside the GUI thread, captures bounded stdout/stderr, reports exit status and
-cleans up owned children on timeout/cancel and normal parent exit. On Windows the
-process is created suspended, assigned to a kill-on-close Job Object, then resumed;
-failure to establish ownership prevents execution. See Microsoft's
-[job assignment](https://learn.microsoft.com/en-us/windows/win32/api/jobapi2/nf-jobapi2-assignprocesstojobobject)
-and [thread enumeration](https://learn.microsoft.com/en-us/windows/win32/toolhelp/traversing-the-thread-list).
+The configuration contains only a name, program and optional argument list:
 
-Only the registered script and interpreter files are fingerprinted; scripts that
-load other files or invoke other programs remain responsible for those dependencies.
-Review their behavior and environment before use. Tools do not receive an internal
-AT-session API. Harmless process-fixture tests are separate from permission to run
-host diagnostics or a RAS collection.
+```json
+{
+  "name": "My diagnostic tool",
+  "program": "MyTool.exe",
+  "arguments": ["settings/default.json"]
+}
+```
+
+Only child folders with a valid configuration appear. Relative programs and
+argument paths use that plugin's folder; arguments remain separate literal values.
+The launcher does not compose a shell command. Missing programs and failed starts
+are shown in the launcher. An empty or removed portable `plugins` folder stays
+empty; source checkouts can use their bundled plugin resources without copying.
+
+An executable starts directly. A `.ps1` entry starts with the installed Windows
+PowerShell runtime, `-NoProfile -STA -File`, without changing execution policy or
+installing anything. The bundled RAS plugin uses this route. Other scripting
+runtimes can be selected as the program with the script in the argument list.
+
+The modem application never requests administrator rights. A plugin may request
+UAC itself when its own operation requires it. Plugins are ordinary local programs;
+install only plugins you trust, keep private inputs out of `plugin.json`, and close
+serial connections inside a plugin before reconnecting the modem application.
+The older reviewed process-runner API remains available internally; its review,
+output capture and cancellation UI is no longer part of the desktop launcher.

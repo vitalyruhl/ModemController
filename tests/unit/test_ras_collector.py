@@ -14,6 +14,8 @@ SCRIPT = (
     / "src"
     / "modem_controller"
     / "tool_data"
+    / "plugins"
+    / "ras-collector"
     / "ras-collect.ps1"
 )
 POWERSHELL = (

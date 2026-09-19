@@ -1,0 +1,4 @@
+{
+  "name": "Windows RAS diagnostics",
+  "program": "launch.ps1"
+}

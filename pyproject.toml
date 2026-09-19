@@ -24,7 +24,7 @@ where = ["src"]
 include-package-data = false
 
 [tool.setuptools.package-data]
-modem_controller = ["catalog/data/*.json", "tool_data/*.json", "tool_data/*.ps1"]
+modem_controller = ["catalog/data/*.json", "tool_data/*.json", "tool_data/*.ps1", "tool_data/plugins/*/*.json", "tool_data/plugins/*/*.ps1"]
 
 [tool.uv]
 cache-keys = [{ file = "pyproject.toml" }, { file = "setup.py" }, { file = "version.json" }, { dir = "src" }]

@@ -226,58 +226,6 @@ def test_owned_child_is_killed_even_when_parent_exits(tmp_path):
     assert not marker.exists()
 
 
-def test_tool_dialog_import_review_and_change_never_auto_execute(qtbot, tmp_path):
-    from modem_controller.ui.tools_dialog import ToolsDialog
-
-    script = tmp_path / "sample.py"
-    script.write_text("print('GUI fixture')\n")
-    registry = tmp_path / "tools.json"
-    registry.write_text(
-        json.dumps(
-            {
-                "tools": [
-                    {
-                        "id": "sample",
-                        "label": "Sample",
-                        "script": str(script),
-                        "kind": "python",
-                        "interpreter": sys.executable,
-                    }
-                ]
-            }
-        )
-    )
-    dialog = ToolsDialog(tmp_path)
-    qtbot.addWidget(dialog)
-    assert dialog.thread is None and not dialog.run_button.isEnabled()
-    dialog._review()
-    assert dialog.run_button.isEnabled()
-    dialog.arguments.setPlainText('["changed"]')
-    assert not dialog.run_button.isEnabled() and dialog.thread is None
-    dialog._review()
-    dialog._run()
-    qtbot.waitUntil(lambda: dialog.thread.isFinished(), timeout=5000)
-    qtbot.waitUntil(lambda: "GUI fixture" in dialog.output.toPlainText(), timeout=5000)
-
-
-def test_escape_waits_for_tool_cleanup_before_dismissing(qtbot, tmp_path):
-    from modem_controller.ui.tools_dialog import ToolsDialog, _ToolThread
-
-    script = _write_python_script(
-        tmp_path / "sleeper.py", "import time; time.sleep(10)"
-    )
-    dialog = ToolsDialog(tmp_path)
-    qtbot.addWidget(dialog)
-    dialog.show()
-    dialog.thread = _ToolThread(review_tool(_python_tool(script)), dialog)
-    dialog.thread.finished.connect(dialog._finished)
-    dialog.thread.start()
-    dialog.reject()
-    assert dialog.close_pending and dialog.isVisible()
-    qtbot.waitUntil(lambda: not dialog.isVisible(), timeout=5000)
-    assert dialog.thread.isFinished()
-
-
 def test_network_script_is_rejected_without_opening_it():
     with pytest.raises(ValueError, match="Network"):
         _python_tool(Path(r"\\server\share\tool.py"))

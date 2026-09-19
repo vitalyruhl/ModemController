@@ -16,6 +16,14 @@ labels and personal test values are excluded. New templates remain unverified
 and do not expand automatic diagnostics. No modem command, SMS or call was sent
 for these corrections. Native user/DPI acceptance remains pending.
 
+The plugin launcher and portable integration passed **69 focused tests**. A real
+detached harmless process verified argument and working-directory handling; the
+standalone RAS form used a synthetic collector to verify that scope and consent
+are required. No real host collection or elevation occurred. Wheel resources
+include the complete plugin folder. The collector matches the user's previous
+2.0.0 portable script byte-for-byte. Candidate archive and relocated executable
+startup are verified separately by the build procedure.
+
 ## Source and automated coverage
 
 The following evidence records the original **2.0.0** implementation interval.
