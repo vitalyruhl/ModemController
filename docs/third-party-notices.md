@@ -54,7 +54,8 @@ version does not grant rights beyond the upstream terms.
 ## Package boundaries
 
 Public release packaging excludes the optional Mesa software OpenGL renderer
-(`opengl32sw.dll`) and Qt's optional OpenSSL backend (`qopensslbackend.dll`).
+(`opengl32sw.dll`), Qt's optional OpenSSL backend (`qopensslbackend.dll`),
+and its unused `libcrypto-3-x64.dll` / `libssl-3-x64.dll` dependencies.
 CPython's own `libcrypto-3.dll` and `libssl-3.dll` remain included; they are the
 OpenSSL 3.0.21 components listed above. Build collection must not acquire
 additional OpenSSL or Universal CRT DLLs from unrelated tools on `PATH`.

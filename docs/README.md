@@ -22,7 +22,7 @@ Manufacturer documentation is available through the [manual download guide](refe
 
 Removed YAT examples, VB.NET material, flyers, driver information and incident
 attachments remain in Git history after the user-directed reference cleanup.
-The [legacy screenshots](images/) illustrate the previous application.
+Legacy screenshots remain in Git history.
 The portable package includes download references under `help/reference/modem-manuals.md`; manufacturer PDFs remain local reference material.
 Driver installers are excluded and never run by the application.
 Original personal incident notes are not test fixtures.

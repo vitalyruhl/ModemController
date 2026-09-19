@@ -21,7 +21,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DIST_DIRECTORY = PROJECT_ROOT / "dist"
 BUILD_DIRECTORY = PROJECT_ROOT / "build" / "pyinstaller"
 BUNDLE_NAME = "ModemController"
-OPTIONAL_RUNTIME_FILENAMES = frozenset({"opengl32sw.dll", "qopensslbackend.dll"})
+OPTIONAL_RUNTIME_FILENAMES = frozenset(
+    {
+        "opengl32sw.dll",
+        "qopensslbackend.dll",
+        "libcrypto-3-x64.dll",
+        "libssl-3-x64.dll",
+    }
+)
 
 
 def build_command(
@@ -122,7 +129,7 @@ def audit_bundle(bundle: Path) -> None:
 
 
 def prune_optional_runtime_files(bundle: Path) -> tuple[Path, ...]:
-    """Remove only optional software rendering and OpenSSL Qt backend files."""
+    """Remove optional rendering and Qt OpenSSL files, retaining CPython TLS."""
     removed = []
     for path in bundle.rglob("*"):
         if path.is_file() and path.name.casefold() in OPTIONAL_RUNTIME_FILENAMES:

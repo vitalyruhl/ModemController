@@ -117,11 +117,14 @@ def test_pruning_removes_only_named_optional_runtime_files(tmp_path):
     optional = (
         tmp_path / "opengl32sw.dll",
         tmp_path / "plugins" / "tls" / "qopensslbackend.dll",
+        tmp_path / "libcrypto-3-x64.dll",
+        tmp_path / "libssl-3-x64.dll",
     )
     retained = (
         tmp_path / "qschannelbackend.dll",
         tmp_path / "opengl32.dll",
-        tmp_path / "libssl-3-x64.dll",
+        tmp_path / "libcrypto-3.dll",
+        tmp_path / "libssl-3.dll",
     )
     for path in (*optional, *retained):
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -132,6 +135,8 @@ def test_pruning_removes_only_named_optional_runtime_files(tmp_path):
     assert set(removed) == {
         Path("opengl32sw.dll"),
         Path("plugins/tls/qopensslbackend.dll"),
+        Path("libcrypto-3-x64.dll"),
+        Path("libssl-3-x64.dll"),
     }
     assert all(path.exists() for path in retained)
 

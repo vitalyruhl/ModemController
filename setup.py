@@ -24,10 +24,16 @@ class VersionedBuild(build_py):
 
 
 class VersionedSource(sdist):
+    def run(self):
+        # setuptools creates its release-tree directory during super().run().
+        # Capture the source checkout before that generated directory is visible to Git.
+        self._source_build_info = build_info()
+        super().run()
+
     def make_release_tree(self, base_dir, files):
         super().make_release_tree(base_dir, files)
         (Path(base_dir) / "source-build.json").write_text(
-            json.dumps(build_info(), indent=2), encoding="utf-8"
+            json.dumps(self._source_build_info, indent=2), encoding="utf-8"
         )
 
 
