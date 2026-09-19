@@ -24,6 +24,28 @@ def generic_profile() -> DeviceProfile:
     return load_starter_catalog().profile("generic-at")
 
 
+def test_observed_bg95_status_reply_shapes_do_not_confuse_eps_with_gprs():
+    replies = {
+        "AT+CPIN?": b"+CPIN: READY",
+        "AT+CREG?": b"+CREG: 0,1",
+        "AT+CEREG?": b"+CEREG: 0,1",
+        "AT+CSQ": b"+CSQ: 16,99",
+        "AT+QNWINFO": b'+QNWINFO: "eMTC","26202","LTE BAND 20",6300',
+    }
+    profile = load_starter_catalog().profile("bg95-m3-observed")
+    results = DiagnosticRunner(
+        lambda command: exchange(replies.get(command.payload, b""))
+    ).run(profile)
+    for key in (
+        "sim-status",
+        "registration-status",
+        "eps-registration",
+        "signal-quality",
+        "network-info",
+    ):
+        assert result_for(results, key).state is DiagnosticState.OK
+
+
 def diagnostic_profile(*commands: CatalogCommand) -> DeviceProfile:
     return replace(generic_profile(), commands=commands)
 

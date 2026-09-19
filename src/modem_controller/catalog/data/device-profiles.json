@@ -2,7 +2,9 @@
   "schema_version": 1,
   "references": {
     "at-text-reference": "docs/reference/at-commands.md",
-    "tc35-at-manual": "docs/reference/modems/tc35/tc3x_atc_01_v0400.pdf"
+    "tc35-at-manual": "docs/reference/modems/tc35/tc3x_atc_01_v0400.pdf",
+    "quectel-bg95-at-v2": "https://quectel.com/content/uploads/2021/03/Quectel_BG95BG77BG600L_Series_AT_Commands_Manual_V2.0-2.pdf",
+    "bg95-observation": "docs/device-support.md"
   },
   "profiles": [
     {
@@ -19,8 +21,12 @@
           "payload": "AT",
           "help_text": "Checks whether the connected terminal accepts AT commands.",
           "risk": "read_only",
-          "applicability": ["mc55i-qw"],
-          "references": ["at-text-reference"],
+          "applicability": [
+            "mc55i-qw"
+          ],
+          "references": [
+            "at-text-reference"
+          ],
           "verification": "supported",
           "expected_response": "OK",
           "timeout_seconds": 2,
@@ -34,8 +40,12 @@
           "payload": "ATI",
           "help_text": "Requests identification text for manual firmware comparison.",
           "risk": "read_only",
-          "applicability": ["mc55i-qw"],
-          "references": ["at-text-reference"],
+          "applicability": [
+            "mc55i-qw"
+          ],
+          "references": [
+            "at-text-reference"
+          ],
           "verification": "supported",
           "expected_response": "Identity text and OK",
           "timeout_seconds": 2,
@@ -57,8 +67,12 @@
           "payload": "AT+CPIN?",
           "help_text": "Requests the current SIM readiness state.",
           "risk": "read_only",
-          "applicability": ["tc35-tc35i"],
-          "references": ["tc35-at-manual"],
+          "applicability": [
+            "tc35-tc35i"
+          ],
+          "references": [
+            "tc35-at-manual"
+          ],
           "verification": "supported",
           "expected_response": "+CPIN and OK",
           "timeout_seconds": 2,
@@ -72,8 +86,12 @@
           "payload": "AT+CREG?",
           "help_text": "Requests circuit-switched registration status.",
           "risk": "read_only",
-          "applicability": ["tc35-tc35i"],
-          "references": ["tc35-at-manual"],
+          "applicability": [
+            "tc35-tc35i"
+          ],
+          "references": [
+            "tc35-at-manual"
+          ],
           "verification": "supported",
           "expected_response": "+CREG and OK",
           "timeout_seconds": 2,
@@ -87,8 +105,12 @@
           "payload": "AT+CSQ",
           "help_text": "Requests received signal quality and bit error rate.",
           "risk": "read_only",
-          "applicability": ["tc35-tc35i"],
-          "references": ["tc35-at-manual"],
+          "applicability": [
+            "tc35-tc35i"
+          ],
+          "references": [
+            "tc35-at-manual"
+          ],
           "verification": "supported",
           "expected_response": "+CSQ and OK",
           "timeout_seconds": 2,
@@ -116,6 +138,244 @@
       "shipped_notes": "Bundled MC88/MC88i material provides product context, not a command specification. No device-specific buttons are enabled without a reviewed AT reference and hardware confirmation.",
       "user_notes": "",
       "commands": []
+    },
+    {
+      "id": "bg95-m3-observed",
+      "name": "Quectel BG95-M3 (observed 55iQ)",
+      "shipped_notes": "Read-only replies observed on BG95M3LAR02A03 on 2026-09-19 at 115200 8N1. Exact module identification is required; the terminal label alone does not establish support. SIM READY and EPS registration observed, but no SMS delivery, data session, wake-up-call or broader firmware acceptance.",
+      "user_notes": "",
+      "sms_text": false,
+      "connection_defaults": {
+        "baud_rate": "115200",
+        "data_bits": "8",
+        "parity": "N",
+        "stop_bits": "1",
+        "flow_control": "None",
+        "dtr": "Driver default",
+        "rts": "Driver default"
+      },
+      "commands": [
+        {
+          "id": "attention",
+          "label": "AT",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT",
+          "help_text": "Requests at without changing modem settings. Reviewed for the observed BG95-M3 firmware only.",
+          "risk": "read_only",
+          "applicability": [
+            "bg95-m3-observed"
+          ],
+          "references": [
+            "quectel-bg95-at-v2",
+            "bg95-observation"
+          ],
+          "verification": "supported",
+          "expected_response": "Documented response and OK",
+          "timeout_seconds": 3,
+          "parameters": []
+        },
+        {
+          "id": "identity",
+          "label": "Identification",
+          "category": "Status",
+          "kind": "at",
+          "payload": "ATI",
+          "help_text": "Requests identification without changing modem settings. Reviewed for the observed BG95-M3 firmware only.",
+          "risk": "read_only",
+          "applicability": [
+            "bg95-m3-observed"
+          ],
+          "references": [
+            "quectel-bg95-at-v2",
+            "bg95-observation"
+          ],
+          "verification": "supported",
+          "expected_response": "Documented response and OK",
+          "timeout_seconds": 3,
+          "parameters": []
+        },
+        {
+          "id": "manufacturer",
+          "label": "Manufacturer",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+CGMI",
+          "help_text": "Requests manufacturer without changing modem settings. Reviewed for the observed BG95-M3 firmware only.",
+          "risk": "read_only",
+          "applicability": [
+            "bg95-m3-observed"
+          ],
+          "references": [
+            "quectel-bg95-at-v2",
+            "bg95-observation"
+          ],
+          "verification": "supported",
+          "expected_response": "Documented response and OK",
+          "timeout_seconds": 3,
+          "parameters": []
+        },
+        {
+          "id": "model",
+          "label": "Module",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+CGMM",
+          "help_text": "Requests module without changing modem settings. Reviewed for the observed BG95-M3 firmware only.",
+          "risk": "read_only",
+          "applicability": [
+            "bg95-m3-observed"
+          ],
+          "references": [
+            "quectel-bg95-at-v2",
+            "bg95-observation"
+          ],
+          "verification": "supported",
+          "expected_response": "Documented response and OK",
+          "timeout_seconds": 3,
+          "parameters": []
+        },
+        {
+          "id": "firmware",
+          "label": "Firmware",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+CGMR",
+          "help_text": "Requests firmware without changing modem settings. Reviewed for the observed BG95-M3 firmware only.",
+          "risk": "read_only",
+          "applicability": [
+            "bg95-m3-observed"
+          ],
+          "references": [
+            "quectel-bg95-at-v2",
+            "bg95-observation"
+          ],
+          "verification": "supported",
+          "expected_response": "Documented response and OK",
+          "timeout_seconds": 3,
+          "parameters": []
+        },
+        {
+          "id": "sim-status",
+          "label": "SIM status",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+CPIN?",
+          "help_text": "Requests sim status without changing modem settings. Reviewed for the observed BG95-M3 firmware only.",
+          "risk": "read_only",
+          "applicability": [
+            "bg95-m3-observed"
+          ],
+          "references": [
+            "quectel-bg95-at-v2",
+            "bg95-observation"
+          ],
+          "verification": "supported",
+          "expected_response": "Documented response and OK",
+          "timeout_seconds": 3,
+          "parameters": []
+        },
+        {
+          "id": "registration-status",
+          "label": "Registration",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+CREG?",
+          "help_text": "Requests registration without changing modem settings. Reviewed for the observed BG95-M3 firmware only.",
+          "risk": "read_only",
+          "applicability": [
+            "bg95-m3-observed"
+          ],
+          "references": [
+            "quectel-bg95-at-v2",
+            "bg95-observation"
+          ],
+          "verification": "supported",
+          "expected_response": "Documented response and OK",
+          "timeout_seconds": 3,
+          "parameters": []
+        },
+        {
+          "id": "eps-registration",
+          "label": "LTE registration",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+CEREG?",
+          "help_text": "Requests lte registration without changing modem settings. Reviewed for the observed BG95-M3 firmware only.",
+          "risk": "read_only",
+          "applicability": [
+            "bg95-m3-observed"
+          ],
+          "references": [
+            "quectel-bg95-at-v2",
+            "bg95-observation"
+          ],
+          "verification": "supported",
+          "expected_response": "Documented response and OK",
+          "timeout_seconds": 3,
+          "parameters": []
+        },
+        {
+          "id": "operator",
+          "label": "Operator",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+COPS?",
+          "help_text": "Requests operator without changing modem settings. Reviewed for the observed BG95-M3 firmware only.",
+          "risk": "read_only",
+          "applicability": [
+            "bg95-m3-observed"
+          ],
+          "references": [
+            "quectel-bg95-at-v2",
+            "bg95-observation"
+          ],
+          "verification": "supported",
+          "expected_response": "Documented response and OK",
+          "timeout_seconds": 3,
+          "parameters": []
+        },
+        {
+          "id": "signal-quality",
+          "label": "Signal quality",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+CSQ",
+          "help_text": "Requests signal quality without changing modem settings. Reviewed for the observed BG95-M3 firmware only.",
+          "risk": "read_only",
+          "applicability": [
+            "bg95-m3-observed"
+          ],
+          "references": [
+            "quectel-bg95-at-v2",
+            "bg95-observation"
+          ],
+          "verification": "supported",
+          "expected_response": "Documented response and OK",
+          "timeout_seconds": 3,
+          "parameters": []
+        },
+        {
+          "id": "network-info",
+          "label": "Network information",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+QNWINFO",
+          "help_text": "Requests network information without changing modem settings. Reviewed for the observed BG95-M3 firmware only.",
+          "risk": "read_only",
+          "applicability": [
+            "bg95-m3-observed"
+          ],
+          "references": [
+            "quectel-bg95-at-v2",
+            "bg95-observation"
+          ],
+          "verification": "supported",
+          "expected_response": "Documented response and OK",
+          "timeout_seconds": 3,
+          "parameters": []
+        }
+      ]
     }
   ]
 }

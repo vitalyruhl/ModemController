@@ -43,6 +43,7 @@ def test_device_profile_packs_expose_only_reviewed_commands() -> None:
         "mc93",
         "tc55i",
         "mc88-mc88i",
+        "bg95-m3-observed",
     }
     assert {command.id for command in catalog.profile("mc55i-qw").visible_commands} == {
         "attention",
@@ -128,3 +129,18 @@ def test_external_tool_reference_cannot_render_or_enter_diagnostics() -> None:
     with pytest.raises(CommandUnavailableError):
         command.render()
     assert command not in profile.diagnostic_commands
+
+
+def test_bg95_scope_is_read_only_and_distinct_from_terminal_family():
+    catalog = load_starter_catalog()
+    profile = catalog.profile("bg95-m3-observed")
+    assert "BG95M3LAR02A03" in profile.shipped_notes
+    assert profile.connection_defaults["baud_rate"] == "115200"
+    assert not profile.sms_text
+    assert all(command.is_read_only_diagnostic for command in profile.commands)
+    assert profile.command("eps-registration").render() == b"AT+CEREG?"
+    assert profile.command("network-info").render() == b"AT+QNWINFO"
+    assert {command.payload for command in catalog.profile("mc55i-qw").commands} == {
+        "AT",
+        "ATI",
+    }
