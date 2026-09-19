@@ -27,7 +27,8 @@ Malformed sidecars are preserved and reported; the desktop shows bundled default
 for that launch. No file is silently corrected or overwritten at startup.
 
 To upgrade, extract the new bundle into a separate folder and copy your three JSON
-files into it, replacing only the fresh sidecars. Keep backups. This preserves
+files into it, replacing only the fresh sidecars. Also preserve `tools.json` if
+you customized optional tool definitions; review their scripts again. Keep backups. This preserves
 customizations and allows new unmodified defaults to merge. Do not copy old runtime
 folders. An optional remembered external settings directory remains authoritative.
 
@@ -40,3 +41,37 @@ acceptance are separate from a successful local build.
 Clean Windows 10 20H2/Windows 11 launch without installed Python, physical-device
 acceptance and additional Server observations remain in the acceptance matrix.
 A local `--smoke-test` desktop launch closes itself without opening any COM port.
+
+## Local candidate delivery
+
+After committing the tested source, build from a clean tree:
+
+```powershell
+uv run python tools/build_portable.py --candidate
+uv run python tools/verify_candidate.py dist/<candidate-name>.zip
+uv run python tools/verify_candidate.py dist/<candidate-name>.zip --smoke
+```
+
+Replace `<candidate-name>` with the exact filename printed by the build. Candidate
+mode rejects an uncommitted tree and detects source/provenance changes during the
+build. Development builds can still be created without `--candidate`; their dirty
+state is explicit and they do not pass candidate verification.
+
+The ZIP filename contains product version, producing commit and UTC build time.
+`build-info.json` records the full source revision, `uv.lock` SHA-256, Python version
+and clean/dirty state. Both frozen programs carry matching copies. The adjacent
+`.zip.sha256` checks the archive, while `contents-sha256.json` covers each payload
+file. Checksums provide integrity, not a signing or publisher-identity claim.
+
+Verification checks the archive and all payload hashes without execution by
+default. `--smoke` is only for a trusted local build: it extracts into a temporary
+project build folder, relocates to a path with spaces, checks required resources,
+and starts CLI help/version/disconnected mode and the GUI offscreen smoke. It
+isolates remembered settings and removes development Python paths; it opens no
+COM port and removes its temporary extraction afterwards. This is local startup
+evidence, not a clean-machine or native-DPI acceptance result. See
+[acceptance.md](acceptance.md) for remaining user and platform gates.
+
+Keep the ZIP and checksum together, then extract the complete folder for use.
+Once the application saves settings, its mutable sidecars can differ from the
+pristine manifest; verify the original ZIP when checking delivery integrity.

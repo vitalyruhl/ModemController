@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import shutil
@@ -87,8 +88,10 @@ def audit_bundle(bundle: Path) -> None:
         raise ValueError("Portable initial settings must be blank defaults")
 
 
-def build() -> Path:
+def build(*, candidate: bool = False) -> Path:
     info = build_info()
+    if candidate and (info["dirty"] or info["source_revision"] == "unavailable"):
+        raise ValueError("A candidate requires a clean committed source tree")
     BUILD_DIRECTORY.mkdir(parents=True, exist_ok=True)
     (BUILD_DIRECTORY / "_version.json").write_bytes(
         (PROJECT_ROOT / "version.json").read_bytes()
@@ -144,8 +147,22 @@ def build() -> Path:
         "release-notes.md",
         "local-tools.md",
         "ras-collection.md",
+        "acceptance.md",
+        "reference/at-commands.md",
     ):
-        shutil.copy2(PROJECT_ROOT / "docs" / name, help_directory / name)
+        text = (PROJECT_ROOT / "docs" / name).read_text(encoding="utf-8")
+        if name == "third-party-notices.md":
+            text = text.replace("](licenses/", "](../licenses/")
+        elif name == "reference/at-commands.md":
+            text = text.replace(
+                "The [documentation index](../README.md) lists supplementary "
+                "manufacturer manuals.",
+                "Supplementary manufacturer manuals remain in the source "
+                "repository and are not part of the portable runtime.",
+            )
+        destination = help_directory / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(text, encoding="utf-8")
     shutil.copytree(PROJECT_ROOT / "docs" / "licenses", bundle / "licenses")
     for metadata in bundle.rglob("modem_controller_rs232-*.dist-info"):
         for item in metadata.iterdir():
@@ -154,6 +171,8 @@ def build() -> Path:
                     raise RuntimeError("Unexpected metadata path")
                 item.unlink()
     audit_bundle(bundle)
+    if candidate and build_info() != info:
+        raise ValueError("Source changed during candidate build; rebuild deliberately")
     contents = {
         str(path.relative_to(bundle)).replace("\\", "/"): hashlib.sha256(
             path.read_bytes()
@@ -176,6 +195,12 @@ def build() -> Path:
     archive = shutil.make_archive(
         str(DIST_DIRECTORY / name), "zip", DIST_DIRECTORY, name
     )
+    archive_path = Path(archive)
+    with archive_path.open("rb") as stream:
+        digest = hashlib.file_digest(stream, "sha256").hexdigest()
+    archive_path.with_name(archive_path.name + ".sha256").write_text(
+        f"{digest}  {archive_path.name}\n", encoding="ascii"
+    )
     resolved = stage.resolve()
     if not resolved.is_relative_to(
         BUILD_DIRECTORY.resolve()
@@ -186,4 +211,6 @@ def build() -> Path:
 
 
 if __name__ == "__main__":
-    print(build())
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--candidate", action="store_true")
+    print(build(candidate=parser.parse_args().candidate))

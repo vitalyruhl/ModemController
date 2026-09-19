@@ -35,6 +35,19 @@ def test_console_recipe_is_headless_and_bundles_metadata():
     assert command[-1].endswith("cli.py")
 
 
+def test_candidate_build_rejects_dirty_source_before_any_output(monkeypatch, tmp_path):
+    destination = tmp_path / "must-not-exist"
+    monkeypatch.setattr(build_portable, "BUILD_DIRECTORY", destination)
+    monkeypatch.setattr(
+        build_portable,
+        "build_info",
+        lambda: {"dirty": True, "source_revision": "a" * 40},
+    )
+    with pytest.raises(ValueError, match="clean committed"):
+        build_portable.build(candidate=True)
+    assert not destination.exists()
+
+
 def test_flat_catalog_sidecar_preserves_edits_and_new_defaults(tmp_path):
     import json
     from dataclasses import replace
