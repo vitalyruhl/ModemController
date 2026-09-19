@@ -1,69 +1,47 @@
-# ModemControllerRS232
+# Modem Controller
 
-A compact Windows modem terminal and diagnostic application built with Python,
-PySide6 and pySerial. The initial Python release candidate is **2.0.0**; its displayed
-source/build identifier distinguishes builds during acceptance.
+> **AT commands. Clear replies. A compact desktop.**
 
-Use the shared ASCII/hex terminal, data-driven command profiles, read-only
-diagnostics, bounded serial-settings search and redacted reports. Catalog editing,
-legacy XML/VCE preview, reviewed maintenance sequences, guarded text SMS, a headless
-console and optional reviewed local Tools/RAS collection are implemented.
+**Windows · Portable · Analog / GSM / AT-compatible ISDN**
 
-Start `ModemController.exe` from the extracted portable folder, or use
-`ModemConsole.exe --help` in PowerShell. No port opens automatically. Modem commands
-require an explicit connection/action; reviewed state-changing actions require
-confirmation. SMS submission acknowledgment does not establish delivery.
+Connect your device, send an AT command, inspect the reply and save useful evidence.
+Modem Controller brings the essentials into one clear graphical window, with
+advanced controls tucked away until you need them.
 
-The editable `settings.json`, `generic-at.json`, `device-profiles.json` and
-`tools.json` are beside the executables. Logging is opt-in and defaults to this
-folder. See [portable operation and upgrades](docs/portable-build.md),
-[console usage](docs/console.md) and the [documentation index](docs/README.md).
+| Diagnose | Inspect | Preserve |
+| --- | --- | --- |
+| SIM, identity, registration and signal checks | Shared text/hex terminal with exact control bytes | Redacted reports and explicitly selected raw evidence |
 
-## Development
+### Built for practical AT work
 
-Python 3.12 or 3.13 is required. Runtime dependencies are PySide6 6.8.3 and pySerial
-3.5; the lock includes PyInstaller 6.12.0, pytest 8.3.5, pytest-qt 4.4.0 and Ruff
-0.11.2 for development.
+- **Analog and Hayes-compatible modems** where their command set is compatible.
+- **GSM and cellular terminals** for focused registration, SIM, signal and SMS diagnosis.
+- **Legacy ISDN equipment** where it provides a compatible text-based AT interface.
 
-```powershell
-uv sync --frozen
-uv run python -m modem_controller.app
-uv run modem-console --help
-uv run ruff check src tests tools setup.py
-uv run ruff format --check src tests tools setup.py
-uv run pytest
-uv build
-uv run python tools/build_portable.py
-```
+Device names are never a support promise. Command availability depends on the
+actual module, firmware, adapter and driver. See [device support](docs/device-support.md)
+before sending a profile command.
 
-`start-gui.cmd` also starts the local development GUI. Use focused tests during
-scoped changes; the full suite belongs to integrated candidate validation.
+## Run the portable app
 
-The source separates `ui/`, `transport/`, `protocol/`, `catalog/` and `workflows/`.
-The CLI shares transport/session/log behavior. Tools execute through a separate
-bounded process adapter; they cannot access an internal AT-session scripting API.
-`version.json` is authoritative; build outputs derive their metadata from it.
+1. Extract the complete ZIP into a folder.
+2. Keep every extracted file and subfolder together.
+3. Start `ModemController.exe` inside the extracted folder.
 
-## Evidence and limits
+The portable bundle includes its Python runtime. The app opens no serial port and
+sends no modem command until you request it. See [portable operation and upgrades](docs/portable-build.md)
+for settings, logs, verification and upgrade guidance.
 
-See [acceptance evidence](docs/acceptance.md) and [device support](docs/device-support.md).
-Offline tests and local executable startup are distinct from clean-target Windows
-and user hardware acceptance. The target is Windows 10 20H2 x64 and newer, but
-untested Windows builds are not certified. Windows Server observations remain
-additional evidence, not a blanket support claim.
+## From source
 
-A read-only COM10 session identified the reported 55iQ as Quectel BG95-M3 with a
-ready SIM and LTE-M registration at 115200 8N1. That does not establish SMS/data
-success or explain an earlier transient network failure. The SIM-info button,
-full settings popup and Phoenix Contact evaluation remain deferred.
+Run `build-portable.cmd` to create the portable bundle. For setup, checks and the
+development GUI, see the [development guide](docs/development.md).
 
-Historical VB.NET sources, releases and removed reference files are available in
-Git history. Remaining manuals are evidence sources, not runtime dependencies or
-automatic driver-installation instructions.
+## Documentation
+
+[Documentation index](docs/README.md) · [AT command reference](docs/reference/at-commands.md) · [Device support](docs/device-support.md) · [Portable builds](docs/portable-build.md) · [Privacy and evidence](docs/privacy.md)
 
 ## License
 
-GNU General Public License v3.0: [LICENSE](LICENSE).
-[Third-party notices](docs/third-party-notices.md) record bundled components and
-remaining provenance checks before public redistribution. No public release,
-signing claim or deployment is implied by a local candidate build.
+GNU General Public License v3.0: [LICENSE](LICENSE). See the
+[third-party notices](docs/third-party-notices.md) for bundled-component information.

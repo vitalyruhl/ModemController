@@ -1,6 +1,7 @@
 # Documentation index
 
 - [Portable build, flat files and upgrades](portable-build.md)
+- [Development and one-click portable build](development.md)
 - [Headless console](console.md)
 - [Catalog editing, sequences and legacy import](catalog-editing.md)
 - [Device support and read-only hardware observations](device-support.md)
