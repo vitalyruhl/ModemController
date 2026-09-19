@@ -21,7 +21,10 @@ class LogWriteError(RuntimeError):
 class SessionLog:
     """Writes selected session events to an explicitly chosen local file."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, max_bytes: int = 10 * 1024 * 1024) -> None:
+        if max_bytes <= 0:
+            raise ValueError("log size limit must be positive")
+        self._max_bytes = max_bytes
         self._path: Path | None = None
         self._mode = LogMode.NORMAL
         self._enabled = False
@@ -109,6 +112,12 @@ class SessionLog:
         line = f"{_timestamp()} {event} {message}\n"
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
+            size = path.stat().st_size if path.exists() else 0
+            if size + len(line.encode("utf-8")) > self._max_bytes:
+                self._enabled = False
+                raise LogWriteError(
+                    "Log size limit reached; choose another file to resume."
+                )
             with path.open("a", encoding="utf-8", newline="\n") as handle:
                 handle.write(line)
         except OSError as error:

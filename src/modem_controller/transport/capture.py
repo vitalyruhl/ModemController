@@ -37,6 +37,39 @@ class CaptureAppendResult:
     dropped_bytes: int = 0
 
 
+@dataclass(frozen=True, slots=True)
+class CaptureSnapshot:
+    records: tuple[CaptureRecord, ...] = ()
+    dropped_records: int = 0
+    dropped_bytes: int = 0
+    sensitive_gaps: int = 0
+    sensitive_bytes: int = 0
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "available": bool(
+                self.records or self.dropped_records or self.sensitive_gaps
+            ),
+            "records": len(self.records),
+            "stored_bytes": sum(r.byte_count for r in self.records),
+            "dropped_records": self.dropped_records,
+            "dropped_bytes": self.dropped_bytes,
+            "sensitive_gaps": self.sensitive_gaps,
+            "sensitive_bytes": self.sensitive_bytes,
+            "incomplete": bool(self.dropped_records or self.sensitive_gaps),
+            "first_record_utc": self.records[0].timestamp.isoformat(
+                timespec="milliseconds"
+            )
+            if self.records
+            else None,
+            "last_record_utc": self.records[-1].timestamp.isoformat(
+                timespec="milliseconds"
+            )
+            if self.records
+            else None,
+        }
+
+
 class CaptureBuffer:
     """A bounded append-only buffer that never silently evicts accepted bytes."""
 
@@ -105,6 +138,15 @@ class CaptureBuffer:
 
     def snapshot(self) -> tuple[CaptureRecord, ...]:
         return tuple(self._records)
+
+    def evidence_snapshot(self) -> CaptureSnapshot:
+        return CaptureSnapshot(
+            self.snapshot(),
+            self._dropped_records,
+            self._dropped_bytes,
+            self._sensitive_gaps,
+            self._sensitive_bytes,
+        )
 
     def clear(self) -> None:
         self._records.clear()

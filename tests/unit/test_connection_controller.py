@@ -139,6 +139,33 @@ def test_sequence_worker_preserves_secret_boundary_and_releases_owner(qtbot):
     assert not port.is_open
 
 
+def test_capture_snapshot_survives_disconnect_and_retains_gap_counts(qtbot):
+    from datetime import UTC, datetime
+
+    from modem_controller.transport.capture import (
+        CaptureBuffer,
+        CaptureDirection,
+        CaptureRecord,
+    )
+
+    port = FakePort()
+    port.capture = CaptureBuffer(max_records=1, max_bytes=20)
+    worker = SerialConnectionWorker(lambda: port)
+    snapshots = []
+    worker.capture_ready.connect(
+        lambda capture, settings: snapshots.append((capture, settings))
+    )
+    worker.open(SerialSettings(port="COM10"))
+    record = CaptureRecord(datetime.now(UTC), CaptureDirection.RECEIVED, b"\xff\r\n")
+    port.capture.append(record)
+    port.capture.record_sensitive_gap(4)
+    worker.close()
+    worker.snapshot_capture()
+    assert snapshots[0][0].records == (record,)
+    assert snapshots[0][0].sensitive_bytes == 4
+    assert snapshots[0][1]["port"] == "COM10"
+
+
 def test_worker_confirms_control_bytes_only_after_the_write_succeeds(qtbot) -> None:
     port = FakePort()
     port.open(SerialSettings(port="COM10"))

@@ -3,6 +3,21 @@ from pathlib import Path
 from modem_controller.ui.session_log import LogMode, SessionLog
 
 
+def test_log_limit_stops_instead_of_deleting_or_truncating_evidence(tmp_path):
+    import pytest
+
+    from modem_controller.ui.session_log import LogWriteError
+
+    path = tmp_path / "bounded.log"
+    log = SessionLog(max_bytes=150)
+    log.configure(path, enabled=True, mode=LogMode.NORMAL)
+    before = path.read_bytes()
+    with pytest.raises(LogWriteError, match="size limit"):
+        log.record_received(b"x" * 200)
+    assert path.read_bytes() == before
+    assert not log.enabled
+
+
 def test_pin_and_fragmented_echo_are_replaced_by_a_gap(tmp_path: Path) -> None:
     log = SessionLog()
     path = tmp_path / "privacy.log"

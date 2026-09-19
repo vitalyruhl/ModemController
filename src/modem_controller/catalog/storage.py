@@ -111,6 +111,9 @@ class SettingsStore:
         self.save_raw(json.dumps(settings.to_dict(), indent=2, sort_keys=True) + "\n")
 
     def save_raw(self, payload: str) -> None:
+        self.save_bytes(payload.encode("utf-8"))
+
+    def save_bytes(self, payload: bytes) -> None:
         temporary_path = None
         try:
             self.directory.mkdir(parents=True, exist_ok=True)
@@ -118,7 +121,7 @@ class SettingsStore:
                 prefix=f".{self.path.name}.", suffix=".tmp", dir=self.directory
             )
             temporary_path = Path(name)
-            with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
+            with os.fdopen(descriptor, "wb") as handle:
                 handle.write(payload)
                 handle.flush()
                 os.fsync(handle.fileno())

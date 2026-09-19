@@ -44,6 +44,7 @@ from modem_controller.transport.serial_port import available_ports
 from modem_controller.ui.catalog_editor import CatalogEditor
 from modem_controller.ui.connection_controller import ConnectionController
 from modem_controller.ui.connection_panel import ConnectionPanel
+from modem_controller.ui.report_dialog import ReportDialog
 from modem_controller.ui.session_log import LogMode, LogWriteError, SessionLog
 from modem_controller.ui.sms_dialog import SmsDialog
 from modem_controller.ui.terminal_view import TerminalWorkspace
@@ -54,6 +55,7 @@ from modem_controller.workflows.maintenance import (
     MaintenanceRunner,
     SequenceRunner,
 )
+from modem_controller.workflows.reporting import render_report
 from modem_controller.workflows.sms import SmsSendResult
 
 
@@ -78,6 +80,10 @@ class MainWindow(QMainWindow):
         self._catalog = catalog or load_starter_catalog()
         self._defaults = self._catalog
         self._save_blocked = False
+        self._logging_problem = ""
+        self._diagnostic_results = ()
+        self._diagnostic_profile = "unknown"
+        self._report_dialog = None
         self._catalog_editor = None
         self._remember_location = remember_location
         self._port_provider = port_provider
@@ -115,6 +121,9 @@ class MainWindow(QMainWindow):
         self.sms_action.triggered.connect(self._show_sms_dialog)
         self.menuBar().addMenu("Messaging").addAction(self.sms_action)
         self._create_logging_menu()
+        self.menuBar().addMenu("Evidence").addAction(
+            "Preview / export report...", self._preview_report
+        )
         catalog_menu = self.menuBar().addMenu("Catalog")
         catalog_menu.addAction("Edit / import / export...", self._show_catalog_editor)
         catalog_menu.addAction(
@@ -326,6 +335,8 @@ class MainWindow(QMainWindow):
         if hasattr(controller, "status_lines"):
             controller.status_lines.connect(self.connection_panel.show_lines)
             controller.notice.connect(self.terminal.append_info)
+        if hasattr(controller, "capture_ready"):
+            controller.capture_ready.connect(self._show_report)
         if hasattr(controller, "capture_gap"):
             controller.capture_gap.connect(self._capture_gap)
         controller.control_bytes_sent.connect(self._show_control_bytes_sent)
@@ -338,6 +349,8 @@ class MainWindow(QMainWindow):
         controller.workflow_finished.connect(lambda: self.set_workflow_active(False))
 
     def _connected(self, settings: str) -> None:
+        self._diagnostic_results = ()
+        self._diagnostic_profile = "unknown"
         self.connection_panel.set_connected(True, settings)
         self.set_preset_execution_enabled(True)
         self._set_sms_enabled(True)
@@ -364,6 +377,7 @@ class MainWindow(QMainWindow):
         self._record_log(self._session_log.record_gap, message)
 
     def _run_diagnostics(self) -> None:
+        self._diagnostic_profile = self._selected_profile().id
         self.set_workflow_active(True)
         self._controller().run_diagnostics(self._selected_profile())
 
@@ -523,12 +537,34 @@ class MainWindow(QMainWindow):
         self.sms_dialog.set_available(enabled, self._workflow_active)
 
     def _show_diagnostics(self, results: tuple[DiagnosticResult, ...]) -> None:
+        self._diagnostic_results = results
         for result in results:
             evidence = b" | ".join(result.evidence).decode("ascii", errors="replace")
             self.terminal.append_info(
                 f"{result.command_id}: {result.state.value}\n{evidence}\n"
                 f"{result.next_check}"
             )
+
+    def _preview_report(self) -> None:
+        self._controller().snapshot_capture()
+
+    def _show_report(self, capture, settings) -> None:
+        report = render_report(
+            self._diagnostic_results,
+            settings,
+            profile_id=self._diagnostic_profile,
+            capture=capture,
+            metadata={"file_logging_issue": self._logging_problem},
+        )
+        dialog = ReportDialog(
+            report,
+            capture,
+            last_directory(self._settings, "reports", Path.home()),
+            self,
+        )
+        dialog.directory_used.connect(self._remember_directory)
+        self._report_dialog = dialog
+        dialog.show()
 
     def _show_sms_dialog(self) -> None:
         self.sms_dialog.show()
@@ -606,6 +642,7 @@ class MainWindow(QMainWindow):
                 path, enabled=enabled, mode=self._selected_logging_mode()
             )
         except LogWriteError as error:
+            self._logging_problem = str(error)
             self._set_logging_checked(False)
             self.connection_panel.show_error(str(error))
             self.terminal.append_info(f"Logging disabled: {error}")
@@ -632,6 +669,7 @@ class MainWindow(QMainWindow):
         try:
             record(*args)
         except LogWriteError as error:
+            self._logging_problem = str(error)
             self._set_logging_checked(False)
             self.connection_panel.show_error(str(error))
             self.terminal.append_info(f"Logging disabled: {error}")

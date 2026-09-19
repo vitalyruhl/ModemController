@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import asdict
 from datetime import timedelta
 from threading import Event
 from time import monotonic
@@ -16,6 +17,7 @@ from modem_controller.protocol.at_session import (
     AtSessionError,
     ExchangeOutcome,
 )
+from modem_controller.transport.capture import CaptureSnapshot
 from modem_controller.transport.privacy import contains_secret_input
 from modem_controller.transport.serial_port import (
     FlowControl,
@@ -97,6 +99,7 @@ class SerialConnectionWorker(QObject):
     sms_status_completed = Signal(object)
     workflow_finished = Signal()
     capture_gap = Signal(str)
+    capture_ready = Signal(object, object)
     status_lines = Signal(object)
     notice = Signal(str)
 
@@ -115,6 +118,7 @@ class SerialConnectionWorker(QObject):
         self._settings: SerialSettings | None = None
         self._response_deadline: float | None = None
         self._last_lines = None
+        self._last_capture = CaptureSnapshot()
 
     @Slot(object)
     def open(self, settings: SerialSettings) -> None:
@@ -127,6 +131,7 @@ class SerialConnectionWorker(QObject):
             return
         self._port = port
         self._settings = settings
+        self._last_capture = CaptureSnapshot()
         self._secret = False
         self._ensure_poll_timer().start(25)
         self.connected.emit(_format_settings(settings))
@@ -140,8 +145,18 @@ class SerialConnectionWorker(QObject):
         self._port = None
         self._response_deadline = None
         if port is not None:
+            if hasattr(port, "capture"):
+                self._last_capture = port.capture.evidence_snapshot()
             port.close()
             self.disconnected.emit()
+
+    @Slot()
+    def snapshot_capture(self) -> None:
+        if self._port is not None and hasattr(self._port, "capture"):
+            self._last_capture = self._port.capture.evidence_snapshot()
+        self.capture_ready.emit(
+            self._last_capture, asdict(self._settings) if self._settings else {}
+        )
 
     @Slot(bytes, bool)
     def send(self, payload: bytes, sensitive: bool) -> None:
@@ -490,10 +505,12 @@ class ConnectionController(QObject):
     sms_status_completed = Signal(object)
     workflow_finished = Signal()
     capture_gap = Signal(str)
+    capture_ready = Signal(object, object)
     status_lines = Signal(object)
     notice = Signal(str)
     _lines_requested = Signal(object)
 
+    _capture_requested = Signal()
     _open_requested = Signal(object)
     _close_requested = Signal()
     _send_requested = Signal(bytes, bool)
@@ -555,12 +572,19 @@ class ConnectionController(QObject):
         self._worker.sms_status_completed.connect(self.sms_status_completed)
         self._worker.workflow_finished.connect(self.workflow_finished)
         self._worker.capture_gap.connect(self.capture_gap)
+        self._worker.capture_ready.connect(self.capture_ready)
+        self._capture_requested.connect(
+            self._worker.snapshot_capture, Qt.QueuedConnection
+        )
         self._worker.status_lines.connect(self.status_lines)
         self._worker.notice.connect(self.notice)
         self._lines_requested.connect(
             self._worker.set_control_lines, Qt.QueuedConnection
         )
         self._thread.start()
+
+    def snapshot_capture(self) -> None:
+        self._capture_requested.emit()
 
     def open(self, settings: SerialSettings) -> None:
         self._open_requested.emit(settings)
