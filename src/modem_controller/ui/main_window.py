@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QActionGroup, QCloseEvent
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QFileDialog,
     QGridLayout,
@@ -30,8 +32,16 @@ from modem_controller.catalog.models import (
     RiskLevel,
     load_starter_catalog,
 )
-from modem_controller.catalog.storage import Settings, SettingsStore, StorageError
+from modem_controller.catalog.storage import (
+    Settings,
+    SettingsStore,
+    StorageError,
+    catalog_overlay,
+    last_directory,
+    merge_catalog_overlay,
+)
 from modem_controller.transport.serial_port import available_ports
+from modem_controller.ui.catalog_editor import CatalogEditor
 from modem_controller.ui.connection_controller import ConnectionController
 from modem_controller.ui.connection_panel import ConnectionPanel
 from modem_controller.ui.session_log import LogMode, LogWriteError, SessionLog
@@ -57,9 +67,15 @@ class MainWindow(QMainWindow):
         port_provider: Callable[[], list[str]] = available_ports,
         connection_controller: ConnectionController | None = None,
         settings_store: SettingsStore | None = None,
+        settings_message: str = "",
+        remember_location: Callable[[Path], None] | None = None,
     ) -> None:
         super().__init__()
         self._catalog = catalog or load_starter_catalog()
+        self._defaults = self._catalog
+        self._save_blocked = False
+        self._catalog_editor = None
+        self._remember_location = remember_location
         self._port_provider = port_provider
         self._connection_controller = connection_controller
         self._settings_store = settings_store
@@ -75,6 +91,11 @@ class MainWindow(QMainWindow):
         self.profile_selector.setObjectName("profileSelector")
         self.category_selector = QComboBox(self)
         self.category_selector.setObjectName("categorySelector")
+        self.command_filter = QLineEdit(self)
+        self.command_filter.setPlaceholderText("Find command or category")
+        self.command_filter.textChanged.connect(self._render_commands)
+        self.favorites_only = QCheckBox("Favorites", self)
+        self.favorites_only.toggled.connect(self._render_commands)
         self.notes = QPlainTextEdit(self)
         self.notes.setReadOnly(True)
         self.notes.setMaximumBlockCount(20)
@@ -90,6 +111,11 @@ class MainWindow(QMainWindow):
         self.sms_action.triggered.connect(self._show_sms_dialog)
         self.menuBar().addMenu("Messaging").addAction(self.sms_action)
         self._create_logging_menu()
+        catalog_menu = self.menuBar().addMenu("Catalog")
+        catalog_menu.addAction("Edit / import / export...", self._show_catalog_editor)
+        catalog_menu.addAction(
+            "Choose settings directory...", self._choose_settings_directory
+        )
         self._set_sms_enabled(False)
 
         for profile in self._catalog.profiles:
@@ -113,6 +139,8 @@ class MainWindow(QMainWindow):
         sidebar_layout.addWidget(self.connection_panel)
         sidebar_layout.addWidget(self.profile_selector)
         sidebar_layout.addWidget(self.category_selector)
+        sidebar_layout.addWidget(self.command_filter)
+        sidebar_layout.addWidget(self.favorites_only)
         sidebar_layout.addWidget(self.notes)
         sidebar_layout.addWidget(self.command_group, 1)
 
@@ -124,6 +152,8 @@ class MainWindow(QMainWindow):
         self._load_preferences()
         self.refresh_ports()
         self.connection_panel.apply_preferences(self._settings.connection)
+        if settings_message:
+            self.statusBar().showMessage(settings_message)
 
     def refresh_ports(self) -> None:
         """Refresh port choices without opening or connecting to a serial port."""
@@ -170,6 +200,14 @@ class MainWindow(QMainWindow):
             command
             for command in self._selected_profile().visible_commands
             if command.category == category
+            and self.command_filter.text().casefold()
+            in f"{command.label} {command.category} {command.payload}".casefold()
+            and (
+                not self.favorites_only.isChecked()
+                or f"{self._selected_profile().id}/{command.id}"
+                in self._settings.favorites
+                or command.id in self._settings.favorites
+            )
         ]
         for index, command in enumerate(commands):
             button = QPushButton(command.label, self.command_group)
@@ -466,11 +504,17 @@ class MainWindow(QMainWindow):
         filename, _ = QFileDialog.getSaveFileName(
             self,
             "Select log file",
-            str(current_path) if current_path is not None else "modem-session.log",
+            str(current_path)
+            if current_path is not None
+            else str(
+                last_directory(self._settings, "logs", Path.home())
+                / "modem-session.log"
+            ),
             "Log files (*.log);;All files (*)",
         )
         if not filename:
             return
+        self._remember_directory("logs", str(Path(filename).parent))
         self._configure_logging(Path(filename), self.enable_logging_action.isChecked())
         self._save_preferences()
 
@@ -529,7 +573,23 @@ class MainWindow(QMainWindow):
             self.terminal.append_info(f"Logging disabled: {error}")
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        self._save_preferences()
+        if self._catalog_editor is not None and not self._catalog_editor.close():
+            event.ignore()
+            return
+        while not self._save_preferences():
+            answer = QMessageBox.warning(
+                self,
+                "Settings were not saved",
+                "Retry saving, discard unsaved changes, or cancel closing.",
+                QMessageBox.Retry | QMessageBox.Discard | QMessageBox.Cancel,
+                QMessageBox.Cancel,
+            )
+            if answer == QMessageBox.Retry:
+                continue
+            if answer == QMessageBox.Discard:
+                break
+            event.ignore()
+            return
         if self._connection_controller is not None:
             self._connection_controller.shutdown()
         try:
@@ -544,11 +604,31 @@ class MainWindow(QMainWindow):
             try:
                 loaded = store.load()
             except StorageError as error:
+                self._save_blocked = True
                 self.connection_panel.show_error(str(error))
             else:
                 self._settings = loaded.settings
                 if loaded.recovered:
+                    self._save_blocked = True
                     self.connection_panel.show_error(loaded.message)
+        try:
+            self._catalog = merge_catalog_overlay(
+                self._defaults, self._settings.catalog_changes
+            )
+            self._catalog = replace(
+                self._catalog,
+                profiles=tuple(
+                    replace(
+                        p,
+                        user_notes=self._settings.profile_notes.get(p.id, p.user_notes),
+                    )
+                    for p in self._catalog.profiles
+                ),
+            )
+        except StorageError as error:
+            self._save_blocked = True
+            self.connection_panel.show_error(str(error))
+        self._reload_profiles()
         profile_index = self.profile_selector.findData(self._settings.selected_profile)
         if profile_index >= 0:
             self.profile_selector.setCurrentIndex(profile_index)
@@ -557,25 +637,114 @@ class MainWindow(QMainWindow):
             self.category_selector.setCurrentText(self._settings.selected_category)
         self._restore_logging_preferences()
 
-    def _save_preferences(self) -> None:
+    def _save_preferences(self) -> bool:
         store = self._settings_store
         if store is None:
-            return
+            return True
+        if self._save_blocked:
+            self.connection_panel.show_error(
+                "Existing data needs review. Choose a different settings directory "
+                "to preserve it."
+            )
+            return False
         settings = Settings(
             selected_profile=self.profile_selector.currentData(),
             selected_category=self.category_selector.currentText(),
             connection=self.connection_panel.preferences(),
             last_directories=self._settings.last_directories,
             favorites=self._settings.favorites,
-            profile_notes=self._settings.profile_notes,
+            profile_notes={p.id: p.user_notes for p in self._catalog.profiles},
+            catalog_changes=catalog_overlay(self._defaults, self._catalog),
             log_file=str(self._session_log.path or ""),
             logging_enabled=self.enable_logging_action.isChecked(),
             logging_mode=self._selected_logging_mode().value,
         )
         try:
             store.save(settings)
+            self._settings = settings
         except StorageError as error:
             self.connection_panel.show_error(str(error))
+            return False
+        return True
+
+    def _reload_profiles(self) -> None:
+        selected = self.profile_selector.currentData()
+        self.profile_selector.blockSignals(True)
+        self.profile_selector.clear()
+        for profile in self._catalog.profiles:
+            self.profile_selector.addItem(profile.name, profile.id)
+        index = self.profile_selector.findData(selected)
+        if index >= 0:
+            self.profile_selector.setCurrentIndex(index)
+        self.profile_selector.blockSignals(False)
+
+    def apply_catalog(self, catalog: CommandCatalog) -> None:
+        self._catalog = catalog
+        self._reload_profiles()
+        self._change_profile()
+        self._save_preferences()
+
+    def _show_catalog_editor(self) -> None:
+        if self._catalog_editor is not None:
+            self._catalog_editor.show()
+            self._catalog_editor.raise_()
+            return
+        editor = CatalogEditor(self._catalog, self)
+        editor.setWindowFlag(Qt.Window)
+        editor.directories = dict(self._settings.last_directories)
+        editor.favorites = set(self._settings.favorites)
+        editor._load_command()
+        editor.catalog_changed.connect(self.apply_catalog)
+        editor.favorite_changed.connect(self._set_favorite)
+        editor.directory_used.connect(self._remember_directory)
+        self._catalog_editor = editor
+        editor.show()
+
+    def _set_favorite(self, key: str, enabled: bool) -> None:
+        favorites = set(self._settings.favorites)
+        if enabled:
+            favorites.add(key)
+        else:
+            favorites.discard(key)
+        self._settings = replace(self._settings, favorites=tuple(sorted(favorites)))
+        self._save_preferences()
+        self._render_commands()
+
+    def _remember_directory(self, purpose: str, directory: str) -> None:
+        self._settings = replace(
+            self._settings,
+            last_directories={**self._settings.last_directories, purpose: directory},
+        )
+        self._save_preferences()
+
+    def _choose_settings_directory(self) -> None:
+        directory = QFileDialog.getExistingDirectory(
+            self, "Choose writable settings directory"
+        )
+        if not directory:
+            return
+        candidate = SettingsStore(Path(directory))
+        if candidate.path.exists():
+            QMessageBox.warning(
+                self,
+                "Existing settings",
+                "Choose an empty directory; existing settings will not be overwritten.",
+            )
+            return
+        previous, blocked = self._settings_store, self._save_blocked
+        self._settings_store, self._save_blocked = candidate, False
+        if self._save_preferences():
+            try:
+                if self._remember_location is not None:
+                    self._remember_location(candidate.directory)
+            except StorageError as error:
+                self.connection_panel.show_error(
+                    f"Saved here, but location was not remembered: {error}"
+                )
+                return
+            self.statusBar().showMessage(f"Settings location: {directory}")
+        else:
+            self._settings_store, self._save_blocked = previous, blocked
 
     def _selected_profile(self):
         return self._catalog.profile(self.profile_selector.currentData())

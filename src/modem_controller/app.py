@@ -8,7 +8,11 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
-from modem_controller.catalog.storage import SettingsStore, choose_settings_location
+from modem_controller.catalog.storage import (
+    SettingsStore,
+    remember_settings_location,
+    resolve_settings_location,
+)
 from modem_controller.ui.main_window import MainWindow
 
 
@@ -19,10 +23,13 @@ def create_main_window() -> MainWindow:
     user_directory = (
         Path(os.environ.get("LOCALAPPDATA", Path.home())) / "ModemController"
     )
-    location = choose_settings_location(
-        application_directory, user_directory=user_directory
+    location = resolve_settings_location(application_directory, user_directory)
+    return MainWindow(
+        settings_store=SettingsStore(location.directory),
+        remember_location=lambda path: remember_settings_location(user_directory, path),
+        settings_message=location.fallback_message
+        or f"Settings location: {location.directory}",
     )
-    return MainWindow(settings_store=SettingsStore(location.directory))
 
 
 def main() -> int:
