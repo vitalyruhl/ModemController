@@ -14,6 +14,9 @@ dependencies = [
     "pyside6==6.8.3",
 ]
 
+[project.scripts]
+modem-console = "modem_controller.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
