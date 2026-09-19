@@ -53,9 +53,15 @@ def load_portable_catalog(directory: Path, *, defaults=None) -> CommandCatalog:
             if len(raw) > 2 * 1024 * 1024:
                 raise ValueError("Catalog exceeds 2 MiB")
             data = json.loads(raw.decode("utf-8-sig"))
+            if not isinstance(data, dict):
+                raise ValueError("Catalog root must be an object")
             edited = CommandCatalog.from_dict(data)
             validate_persisted_catalog(edited)
-            baseline = CommandCatalog.from_dict(data.get("_shipped_baseline", data))
+            baseline_data = data.get("_shipped_baseline", data)
+            if not isinstance(baseline_data, dict):
+                raise ValueError("Shipped baseline must be an object")
+            baseline = CommandCatalog.from_dict(baseline_data)
+            validate_persisted_catalog(baseline)
             if "_shipped_baseline" not in data:
                 # Legacy sidecars are explicit complete profile overrides.
                 ids = {p.id for p in edited.profiles}

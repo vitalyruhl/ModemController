@@ -66,6 +66,36 @@ def test_secret_input_is_transient_and_not_retained_in_entries(qtbot) -> None:
     assert b"1234" not in repr(terminal.entries).encode()
 
 
+def test_split_secret_stays_private_until_successful_reconnect(qtbot):
+    window = MainWindow()
+    qtbot.addWidget(window)
+    terminal = window.terminal
+    terminal.command_input.setText("AT")
+    terminal.submit_text()
+    terminal.hex_input.setText(b"AT+CPIN=".hex())
+    terminal.submit_hex()
+    terminal.command_input.setText("1234")
+    qtbot.keyClick(terminal.command_input, Qt.Key_Up)
+    qtbot.keyClick(terminal.command_input, Qt.Key_Down)
+    assert terminal.command_input.text() == ""
+    terminal.command_input.setText("1234")
+    terminal.submit_text()
+    assert "1234" not in terminal.transcript.toPlainText()
+    assert "1234" not in terminal._history
+    assert terminal.entries[-1].sensitive
+    assert not terminal.resend_selected_line()
+    terminal.clear()
+    window._disconnected()
+    terminal.append_received(b"1234")
+    assert b"1234" not in repr(terminal.entries).encode()
+    terminal.command_input.setText("5678")
+    window._connected("COM10")
+    assert terminal.command_input.text() == ""
+    terminal.command_input.setText("AT+CSQ")
+    terminal.submit_text()
+    assert terminal.entries[-1].data == b"AT+CSQ\r"
+
+
 def test_startup_and_profile_selection_do_not_emit_send_intents(qtbot) -> None:
     window = MainWindow()
     qtbot.addWidget(window)

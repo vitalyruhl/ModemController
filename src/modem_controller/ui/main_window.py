@@ -363,6 +363,7 @@ class MainWindow(QMainWindow):
         controller.workflow_finished.connect(lambda: self.set_workflow_active(False))
 
     def _connected(self, settings: str) -> None:
+        self.terminal.reset_privacy_context()
         self._diagnostic_results = ()
         self._diagnostic_profile = "unknown"
         self.connection_panel.set_connected(True, settings)
@@ -393,6 +394,7 @@ class MainWindow(QMainWindow):
         self._record_log(self._session_log.record_received, payload)
 
     def _capture_gap(self, message: str) -> None:
+        self.terminal.pause_sensitive_capture()
         self.terminal.append_info(message)
         self._record_log(self._session_log.record_gap, message)
 

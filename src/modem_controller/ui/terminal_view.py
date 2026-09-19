@@ -69,6 +69,7 @@ class TerminalWorkspace(QWidget):
         self._entries: deque[TerminalEntry] = deque(maxlen=max_entries)
         self._auto_scroll = True
         self._workflow_active = False
+        self._secret = False
         self._history: deque[str] = deque(maxlen=100)
         self._history_index = 0
         self._history_draft = ""
@@ -181,7 +182,9 @@ class TerminalWorkspace(QWidget):
             if self._history_index >= len(history):
                 draft = self.command_input.text()
                 self._history_draft = (
-                    "" if contains_secret_input(draft.encode("utf-8")) else draft
+                    ""
+                    if self._secret or contains_secret_input(draft.encode("utf-8"))
+                    else draft
                 )
             change = -1 if event.key() == Qt.Key_Up else 1
             self._history_index = min(
@@ -244,15 +247,28 @@ class TerminalWorkspace(QWidget):
         self._auto_scroll = not paused
 
     def append_received(self, data: bytes) -> None:
-        self._append(TerminalDirection.RECEIVED, data)
+        self._append(TerminalDirection.RECEIVED, data, sensitive=self._secret)
+
+    def pause_sensitive_capture(self) -> None:
+        self._secret = True
+        self._history_draft = ""
+
+    def reset_privacy_context(self) -> None:
+        """Start a new connection without carrying transient secret drafts forward."""
+        self._secret = False
+        self._history_draft = ""
+        self.command_input.clear()
+        self.hex_input.clear()
 
     def append_transmitted(
         self, data: bytes, *, sensitive: bool = False, force_hex: bool = False
     ) -> None:
+        if sensitive or contains_secret_input(data):
+            self.pause_sensitive_capture()
         self._append(
             TerminalDirection.TRANSMITTED,
             data,
-            sensitive=sensitive,
+            sensitive=self._secret,
             force_hex=force_hex,
         )
 
@@ -283,7 +299,7 @@ class TerminalWorkspace(QWidget):
                 "Command must be ASCII; use exact hex for other bytes."
             )
             return False
-        sensitive = contains_secret_input(payload)
+        sensitive = self._secret or contains_secret_input(payload)
         self.append_transmitted(payload + terminator, sensitive=sensitive)
         if not sensitive:
             if not self._history or self._history[-1] != command:
@@ -325,6 +341,7 @@ class TerminalWorkspace(QWidget):
             or entry.sensitive
             or entry.direction is TerminalDirection.INFORMATION
             or self._workflow_active
+            or self._secret
         ):
             return False
         command, terminator = self._as_text_command(entry.data)
@@ -431,6 +448,7 @@ class TerminalWorkspace(QWidget):
             self._selected_entry() is not None
             and self._selected_entry().direction is not TerminalDirection.INFORMATION
             and not self._workflow_active
+            and not self._secret
         )
         action = menu.exec(self.transcript.mapToGlobal(position))
         if action is copy_all:

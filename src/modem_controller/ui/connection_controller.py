@@ -138,6 +138,7 @@ class SerialConnectionWorker(QObject):
         self._settings = settings
         self._last_capture = CaptureSnapshot()
         self._secret = False
+        self._cancel_requested.clear()
         self._ensure_poll_timer().start(25)
         self.connected.emit(_format_settings(settings))
 
@@ -266,10 +267,8 @@ class SerialConnectionWorker(QObject):
 
     @Slot(object)
     def run_diagnostics(self, profile: DeviceProfile) -> None:
-        port = self._port
-        if port is None or not port.is_open:
-            self.error.emit("No serial connection is open.")
-            self.workflow_finished.emit()
+        port = self._workflow_port()
+        if port is None:
             return
         self._cancel_requested.clear()
         session = self._session(port)
@@ -283,6 +282,11 @@ class SerialConnectionWorker(QObject):
                 cancelled=self._cancel_requested.is_set,
             ).run(profile)
         finally:
+            if self._cancel_requested.is_set() or any(
+                result.reason in {"timeout", "cancelled", "disconnected"}
+                for result in locals().get("results", ())
+            ):
+                self.close()
             self.diagnostics_completed.emit(locals().get("results", ()))
             self.workflow_finished.emit()
 
@@ -321,10 +325,9 @@ class SerialConnectionWorker(QObject):
 
     @Slot(object, object)
     def run_maintenance(self, command: CatalogCommand, values: dict[str, str]) -> None:
-        port = self._port
-        if port is None or not port.is_open:
-            self.error.emit("No serial connection is open.")
-            self.workflow_finished.emit()
+        port = self._workflow_port()
+        if port is None:
+            values.clear()
             return
         try:
             secret = any(parameter.secret for parameter in command.parameters)
@@ -347,10 +350,9 @@ class SerialConnectionWorker(QObject):
 
     @Slot(object, object, object)
     def run_sequence(self, command, profile, values) -> None:
-        port = self._port
-        if port is None or not port.is_open:
-            self.error.emit("No serial connection is open.")
-            self.workflow_finished.emit()
+        port = self._workflow_port()
+        if port is None:
+            values.clear()
             return
         self._response_deadline = None
         session = self._session(port)
@@ -384,10 +386,8 @@ class SerialConnectionWorker(QObject):
     def send_sms(
         self, recipient: str, body: str, profile_supported: bool = True
     ) -> None:
-        port = self._port
-        if port is None or not port.is_open:
-            self.error.emit("No serial connection is open.")
-            self.workflow_finished.emit()
+        port = self._workflow_port()
+        if port is None:
             return
         try:
             workflow = SmsSendWorkflow(
@@ -427,10 +427,8 @@ class SerialConnectionWorker(QObject):
         self._run_sms_queries(SmsInspector.status_commands())
 
     def _run_sms_queries(self, payloads: tuple[bytes, ...]) -> None:
-        port = self._port
-        if port is None or not port.is_open:
-            self.error.emit("No serial connection is open.")
-            self.workflow_finished.emit()
+        port = self._workflow_port()
+        if port is None:
             return
         try:
             session = self._session(port)
@@ -447,6 +445,16 @@ class SerialConnectionWorker(QObject):
         finally:
             self.sms_status_completed.emit(locals().get("exchanges", ()))
             self.workflow_finished.emit()
+
+    def _workflow_port(self) -> SerialPort | None:
+        if self._port is None or not self._port.is_open:
+            self.error.emit("No serial connection is open.")
+        elif self._secret:
+            self.error.emit("Sensitive session paused; reconnect before a workflow.")
+        else:
+            return self._port
+        self.workflow_finished.emit()
+        return None
 
     def _ensure_poll_timer(self) -> QTimer:
         if self._poll_timer is None:
@@ -474,6 +482,7 @@ class SerialConnectionWorker(QObject):
         sensitive: bool = False,
     ) -> AtExchange:
         started_at = monotonic()
+        sensitive = sensitive or self._secret
         self._response_deadline = None
         if self._settings is not None:
             timeout = min(timeout, self._settings.response_timeout)

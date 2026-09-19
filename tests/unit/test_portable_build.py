@@ -109,6 +109,31 @@ def test_corrupt_sidecar_is_preserved(tmp_path):
     assert path.read_text() == "invalid"
 
 
+@pytest.mark.parametrize("value", [None, [], "catalog", 42, True])
+@pytest.mark.parametrize("in_baseline", [False, True])
+def test_non_object_catalog_or_baseline_is_recoverable(tmp_path, value, in_baseline):
+    import json
+
+    from modem_controller.catalog.portable import (
+        load_portable_catalog,
+        seed_catalog_files,
+    )
+    from modem_controller.catalog.storage import StorageError
+
+    seed_catalog_files(tmp_path)
+    path = tmp_path / "generic-at.json"
+    data = json.loads(path.read_text())
+    if in_baseline:
+        data["_shipped_baseline"] = value
+    else:
+        data = value
+    path.write_text(json.dumps(data))
+    before = path.read_bytes()
+    with pytest.raises(StorageError, match="generic-at.json"):
+        load_portable_catalog(tmp_path)
+    assert path.read_bytes() == before
+
+
 def test_moving_settings_preserves_external_catalog_notes(qtbot, monkeypatch, tmp_path):
     from dataclasses import replace
 
