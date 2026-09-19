@@ -24,7 +24,10 @@ legacy defaults; applying fields in the editor records the displayed choice.
 Changing this choice alone does not change Risk or Verification. Non-secret
 parameterized or state-changing presets default to preparation; inspect the result
 and press **Send** separately.
-**Prepare SMS** opens recipient/message fields without sending. Reviewed simple
+**Prepare SMS** is the single SMS entry point and opens recipient/message fields
+without sending. Its status explains unavailable actions. The selected profile
+must enable SMS support; Generic AT provides the guarded text-mode workflow.
+Reviewed simple
 status queries retain one-click sending. PIN/PUK values use transient secret
 prompts, and complete sequences require review. See the
 [historical inventory](reference/legacy-command-inventory.md) for inherited presets.

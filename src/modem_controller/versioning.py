@@ -37,50 +37,65 @@ def product_version() -> str:
     )
 
 
-def build_info() -> dict:
+def build_info(*, built_at_utc: str | None = None) -> dict:
     root = _source_root()
     if root is None:
         path = Path(__file__).with_name("_build.json")
         data = json.loads(path.read_text(encoding="utf-8"))
         if data.get("version") != product_version():
             raise ValueError("Build metadata version does not match product version")
-        return data
-    recorded = root / "source-build.json"
-    if recorded.exists() and not (root / ".git").exists():
-        data = json.loads(recorded.read_text(encoding="utf-8"))
-        if data.get("version") != product_version():
-            raise ValueError("Source build version mismatch")
-        return data
-    revision, dirty = "unavailable", True
-    try:
-        flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
-        revision = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"],
-            cwd=root,
-            text=True,
-            timeout=5,
-            stderr=subprocess.DEVNULL,
-            creationflags=flags,
-        ).strip()
-        dirty = bool(
-            subprocess.check_output(
-                ["git", "status", "--porcelain"],
-                cwd=root,
-                text=True,
-                timeout=5,
-                stderr=subprocess.DEVNULL,
-                creationflags=flags,
-            ).strip()
-        )
-    except (OSError, subprocess.SubprocessError):
-        pass
-    return {
-        "version": product_version(),
-        "source_revision": revision,
-        "dirty": dirty,
-        "lock_sha256": hashlib.sha256((root / "uv.lock").read_bytes()).hexdigest(),
-        "python": platform.python_version(),
-    }
+    else:
+        recorded = root / "source-build.json"
+        if recorded.exists() and not (root / ".git").exists():
+            data = json.loads(recorded.read_text(encoding="utf-8"))
+            if data.get("version") != product_version():
+                raise ValueError("Source build version mismatch")
+        else:
+            revision, dirty = "unavailable", True
+            try:
+                flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+                revision = subprocess.check_output(
+                    ["git", "rev-parse", "HEAD"],
+                    cwd=root,
+                    text=True,
+                    timeout=5,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=flags,
+                ).strip()
+                dirty = bool(
+                    subprocess.check_output(
+                        ["git", "status", "--porcelain"],
+                        cwd=root,
+                        text=True,
+                        timeout=5,
+                        stderr=subprocess.DEVNULL,
+                        creationflags=flags,
+                    ).strip()
+                )
+            except (OSError, subprocess.SubprocessError):
+                pass
+            data = {
+                "version": product_version(),
+                "source_revision": revision,
+                "dirty": dirty,
+                "lock_sha256": hashlib.sha256(
+                    (root / "uv.lock").read_bytes()
+                ).hexdigest(),
+                "python": platform.python_version(),
+            }
+    if built_at_utc is not None:
+        data = {**data, "built_at_utc": built_at_utc}
+    return data
+
+
+def build_time_label(info: dict | None = None) -> str:
+    """Return recorded build time, never manufacture one for a source checkout."""
+    value = (build_info() if info is None else info).get("built_at_utc")
+    return (
+        value
+        if isinstance(value, str) and value
+        else "Development checkout (not packaged)"
+    )
 
 
 def version_label() -> str:

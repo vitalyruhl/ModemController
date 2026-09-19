@@ -43,6 +43,8 @@ class SmsDialog(QDialog):
         self.read_button = QPushButton("Read message", self)
         self.send_button = QPushButton("Send message", self)
         self.validation_message = QLabel(self)
+        self.availability_message = QLabel(self)
+        self.availability_message.setWordWrap(True)
 
         self.status_button.clicked.connect(self.status_requested)
         self.read_button.clicked.connect(self._request_read)
@@ -64,6 +66,7 @@ class SmsDialog(QDialog):
         buttons.addWidget(self.read_button)
         buttons.addWidget(self.send_button)
         layout = QVBoxLayout(self)
+        layout.addWidget(self.availability_message)
         layout.addLayout(form)
         layout.addLayout(buttons)
         layout.addWidget(self.validation_message)

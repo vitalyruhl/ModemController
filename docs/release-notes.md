@@ -11,6 +11,11 @@ Resizing the editor now expands its command list and editable content. In the ma
 window, categories and commands share additional vertical space at a 1:2 ratio;
 buttons keep consistent spacing and remain aligned at the top.
 
+The rightmost **?** menu contains About and report export. About shows the author,
+product version, license and fixed UTC build timestamp. The duplicate Messaging
+menu is removed; **Prepare SMS** is the single entry point and explains when
+connection or profile capabilities prevent SMS actions.
+
 ## 2.0.1 - desktop feedback corrections
 
 The window title shows only the product version. Terminal output continues

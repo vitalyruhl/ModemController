@@ -41,11 +41,20 @@ def test_candidate_build_rejects_dirty_source_before_any_output(monkeypatch, tmp
     monkeypatch.setattr(
         build_portable,
         "build_info",
-        lambda: {"dirty": True, "source_revision": "a" * 40},
+        lambda **_: {"dirty": True, "source_revision": "a" * 40},
     )
     with pytest.raises(ValueError, match="clean committed"):
         build_portable.build(candidate=True)
     assert not destination.exists()
+
+
+def test_provenance_comparison_ignores_only_build_timestamp():
+    before = {"source_revision": "abc", "lock_sha256": "lock", "built_at_utc": "a"}
+    after = {"source_revision": "abc", "lock_sha256": "lock", "built_at_utc": "b"}
+    assert build_portable.same_provenance(before, after)
+    assert not build_portable.same_provenance(
+        before, {**after, "lock_sha256": "changed"}
+    )
 
 
 def test_flat_catalog_sidecar_preserves_edits_and_new_defaults(tmp_path):

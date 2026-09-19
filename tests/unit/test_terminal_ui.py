@@ -246,15 +246,16 @@ def test_advanced_connection_controls_are_hidden_until_checked(qtbot) -> None:
     assert not panel.baud_rate.isHidden()
 
 
-def test_sms_is_a_separate_menu_dialog_and_terminal_accepts_info(qtbot) -> None:
+def test_sms_has_one_preparation_button_and_terminal_accepts_info(qtbot) -> None:
     window = MainWindow()
     qtbot.addWidget(window)
 
     assert window.command_group.title() == "Commands"
-    assert not window.sms_action.isEnabled()
+    assert not hasattr(window, "sms_action")
+    assert window.prepare_sms_button.isEnabled()
     assert not hasattr(window, "diagnostic_results")
     window._connected("COM10 | 19200 Bd")
-    window.sms_action.trigger()
+    window.prepare_sms_button.click()
     window.terminal.append_info("Diagnostics complete")
 
     assert window.sms_dialog.isVisible()

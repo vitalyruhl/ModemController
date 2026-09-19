@@ -18,11 +18,13 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QLineEdit,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
     QSplitter,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -45,6 +47,7 @@ from modem_controller.catalog.storage import (
 )
 from modem_controller.paths import application_directory
 from modem_controller.transport.serial_port import available_ports
+from modem_controller.ui.about_dialog import AboutDialog
 from modem_controller.ui.catalog_editor import CatalogEditor
 from modem_controller.ui.connection_controller import ConnectionController
 from modem_controller.ui.connection_panel import ConnectionPanel
@@ -95,6 +98,7 @@ class MainWindow(QMainWindow):
         self._diagnostic_profile = "unknown"
         self._report_dialog = None
         self._catalog_editor = None
+        self._about_dialog = None
         self._remember_location = remember_location
         self._port_provider = port_provider
         self._connection_controller = connection_controller
@@ -146,22 +150,26 @@ class MainWindow(QMainWindow):
         self.sms_dialog.status_requested.connect(self._query_sms_status)
         self.sms_dialog.read_requested.connect(self._read_sms)
         self.sms_dialog.send_requested.connect(self._send_sms)
-        self.sms_action = QAction("SMS...", self)
-        self.sms_action.triggered.connect(self._show_sms_dialog)
         self.prepare_sms_button = QPushButton("Prepare SMS...", self)
         self.prepare_sms_button.clicked.connect(self._show_sms_dialog)
-        self.menuBar().addMenu("Messaging").addAction(self.sms_action)
         self._create_logging_menu()
         self.tools_action = self.menuBar().addAction("Plugins...")
         self.tools_action.triggered.connect(self._show_tools)
-        self.menuBar().addMenu("Evidence").addAction(
-            "Preview / export report...", self._preview_report
-        )
         catalog_menu = self.menuBar().addMenu("Catalog")
         catalog_menu.addAction("Edit / import / export...", self._show_catalog_editor)
         catalog_menu.addAction(
             "Choose settings directory...", self._choose_settings_directory
         )
+        self.help_menu = QMenu(self)
+        self.help_menu.addAction("About Modem Controller...", self._show_about)
+        self.help_menu.addAction("Preview / export report...", self._preview_report)
+        self.help_button = QToolButton(self)
+        self.help_button.setText("?")
+        self.help_button.setAccessibleName("Help and program information")
+        self.help_button.setToolTip("Program information and report export")
+        self.help_button.setMenu(self.help_menu)
+        self.help_button.setPopupMode(QToolButton.InstantPopup)
+        self.menuBar().setCornerWidget(self.help_button, Qt.TopRightCorner)
         self._set_sms_enabled(False)
 
         for profile in self._catalog.profiles:
@@ -773,13 +781,28 @@ class MainWindow(QMainWindow):
             and bool(self.profile_selector.currentData())
             and self._selected_profile().sms_text
         )
-        self.sms_action.setEnabled(enabled and not self._workflow_active)
         self.prepare_sms_button.setEnabled(not self._workflow_active)
         self.prepare_sms_button.setToolTip(
             "Enter a recipient and message without sending. "
             "Sending requires a connected SMS-capable profile."
         )
         self.sms_dialog.set_available(enabled, self._workflow_active)
+        if not self._preset_execution_enabled:
+            reason = (
+                "Connect to the modem to read or send SMS. You can prepare a draft now."
+            )
+        elif not self._selected_profile().sms_text:
+            reason = (
+                "SMS actions are not enabled for this profile. "
+                "Select Generic AT to use the guarded text-mode SMS workflow."
+            )
+        elif self._workflow_active:
+            reason = "Finish or cancel the active operation before using SMS actions."
+        else:
+            reason = (
+                "Check SMS status before sending. Opening this window sends nothing."
+            )
+        self.sms_dialog.availability_message.setText(reason)
 
     def _show_diagnostics(self, results: tuple[DiagnosticResult, ...]) -> None:
         self._diagnostic_results = results
@@ -815,6 +838,13 @@ class MainWindow(QMainWindow):
         self.sms_dialog.show()
         self.sms_dialog.raise_()
         self.sms_dialog.activateWindow()
+
+    def _show_about(self) -> None:
+        if self._about_dialog is None:
+            self._about_dialog = AboutDialog(self)
+        self._about_dialog.show()
+        self._about_dialog.raise_()
+        self._about_dialog.activateWindow()
 
     def _show_tools(self) -> None:
         if self._workflow_active:

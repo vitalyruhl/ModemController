@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from modem_controller.versioning import product_version, read_version
+from modem_controller.versioning import build_time_label, product_version, read_version
 
 
 @pytest.mark.parametrize(
@@ -56,3 +56,10 @@ def test_stale_packaged_build_identity_is_rejected(monkeypatch, tmp_path):
     monkeypatch.setattr(module, "__file__", str(tmp_path / "versioning.py"))
     with pytest.raises(ValueError, match="does not match"):
         module.build_info()
+
+
+def test_build_time_label_uses_only_recorded_build_time():
+    assert build_time_label({"built_at_utc": "2026-09-19T18:00:00+00:00"}) == (
+        "2026-09-19T18:00:00+00:00"
+    )
+    assert build_time_label({}) == "Development checkout (not packaged)"

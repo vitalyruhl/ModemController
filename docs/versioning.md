@@ -13,7 +13,10 @@ Major changes need an explicit decision. No tag or public release is implicit.
 The desktop title shows only the product version. The console version output,
 archive name and `build-info.json` retain source identity for troubleshooting.
 `build-info.json` also records the dependency-lock SHA-256 and
-Python build version. A dirty build is for development, not an exact committed
+Python build version. Portable builds also record a fixed `built_at_utc` timestamp,
+shown with the version, author and license under **? → About**. Development
+checkouts explicitly say that they are not packaged instead of inventing a date.
+A dirty build is for development, not an exact committed
 acceptance candidate. Source archives carry the same derived provenance; build
 outputs never rewrite `version.json`.
 

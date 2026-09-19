@@ -88,8 +88,16 @@ def audit_bundle(bundle: Path) -> None:
         raise ValueError("Portable initial settings must be blank defaults")
 
 
+def same_provenance(left: dict, right: dict) -> bool:
+    """Compare all provenance fields except the intentionally unique build time."""
+    return {key: value for key, value in left.items() if key != "built_at_utc"} == {
+        key: value for key, value in right.items() if key != "built_at_utc"
+    }
+
+
 def build(*, candidate: bool = False) -> Path:
-    info = build_info()
+    build_started_at = datetime.now(UTC).isoformat()
+    info = build_info(built_at_utc=build_started_at)
     if candidate and (info["dirty"] or info["source_revision"] == "unavailable"):
         raise ValueError("A candidate requires a clean committed source tree")
     BUILD_DIRECTORY.mkdir(parents=True, exist_ok=True)
@@ -169,7 +177,7 @@ def build(*, candidate: bool = False) -> Path:
                     raise RuntimeError("Unexpected metadata path")
                 item.unlink()
     audit_bundle(bundle)
-    if candidate and build_info() != info:
+    if candidate and not same_provenance(build_info(), info):
         raise ValueError("Source changed during candidate build; rebuild deliberately")
     contents = {
         str(path.relative_to(bundle)).replace("\\", "/"): hashlib.sha256(
