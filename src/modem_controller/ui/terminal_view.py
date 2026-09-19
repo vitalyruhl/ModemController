@@ -75,13 +75,21 @@ class TerminalWorkspace(QWidget):
         self._history_index = 0
         self._history_draft = ""
         self._block_entries: list[TerminalEntry] = []
+        self._following_render = True
 
         self.transcript = QPlainTextEdit(self)
         self.transcript.setReadOnly(True)
         self.transcript.setObjectName("terminalTranscript")
         self.transcript.verticalScrollBar().valueChanged.connect(self._track_scroll)
+        self.transcript.verticalScrollBar().rangeChanged.connect(self._follow_range)
         self.transcript.setContextMenuPolicy(Qt.CustomContextMenu)
         self.transcript.customContextMenuRequested.connect(self._show_transcript_menu)
+        for surface in (
+            self.transcript,
+            self.transcript.viewport(),
+            self.transcript.verticalScrollBar(),
+        ):
+            surface.installEventFilter(self)
 
         self.display_mode = QComboBox(self)
         self.display_mode.addItems([mode.value for mode in DisplayMode])
@@ -113,17 +121,26 @@ class TerminalWorkspace(QWidget):
 
         input_layout = QHBoxLayout()
         input_layout.addWidget(self.command_input, 1)
-        input_layout.addWidget(self.terminator)
         input_layout.addWidget(self.send_button)
-        input_layout.addWidget(self.clear_button)
+
+        display_layout = QHBoxLayout()
+        self.display_mode.setMaximumWidth(160)
+        display_layout.addWidget(self.display_mode)
+        display_layout.addWidget(self.clear_button)
+        display_layout.addStretch()
+        ending_layout = QHBoxLayout()
+        self.terminator.setMaximumWidth(120)
+        ending_layout.addWidget(self.terminator)
+        ending_layout.addStretch()
 
         hex_layout = QHBoxLayout()
         hex_layout.addWidget(self.hex_input, 1)
         hex_layout.addWidget(self.hex_send_button)
 
         controls = QFormLayout()
-        controls.addRow("Display", self.display_mode)
-        controls.addRow("Command", input_layout)
+        controls.addRow("Display", display_layout)
+        controls.addRow(input_layout)
+        controls.addRow("Line ending", ending_layout)
         controls.addRow("Exact bytes", hex_layout)
         controls.addRow("", self.validation_message)
         self.inspection = QGroupBox("Terminal options", self)
@@ -174,6 +191,27 @@ class TerminalWorkspace(QWidget):
         return [value for value in self._history if query in value.casefold()]
 
     def eventFilter(self, watched, event) -> bool:
+        scroll_bar = self.transcript.verticalScrollBar()
+        transcript_surfaces = (
+            self.transcript,
+            self.transcript.viewport(),
+            scroll_bar,
+        )
+        navigation_key = event.type() is QEvent.KeyPress and event.key() in {
+            Qt.Key_Up,
+            Qt.Key_Down,
+            Qt.Key_PageUp,
+            Qt.Key_PageDown,
+            Qt.Key_Home,
+            Qt.Key_End,
+        }
+        scroll_intent = (
+            event.type() is QEvent.Wheel
+            or (watched is scroll_bar and event.type() is QEvent.MouseButtonPress)
+            or (watched in transcript_surfaces and navigation_key)
+        )
+        if scroll_intent:
+            self._following_render = False
         if (
             watched is self.command_input
             and event.type() == QEvent.KeyPress
@@ -246,6 +284,7 @@ class TerminalWorkspace(QWidget):
 
     def set_auto_scroll_paused(self, paused: bool) -> None:
         self._auto_scroll = not paused
+        self._following_render = not paused
 
     def append_received(self, data: bytes) -> None:
         self._append(TerminalDirection.RECEIVED, data, sensitive=self._secret)
@@ -396,6 +435,8 @@ class TerminalWorkspace(QWidget):
         scroll_bar = self.transcript.verticalScrollBar()
         scroll_bar.setValue(position if paused else scroll_bar.maximum())
         scroll_bar.blockSignals(False)
+        if not paused:
+            self._following_render = True
         self.counts.setText(
             f"Retained: {len(self._entries)} entries, "
             f"{sum(len(e.data) for e in self._entries)} bytes (raw capture is separate)"
@@ -438,8 +479,17 @@ class TerminalWorkspace(QWidget):
         return f"{prefix}{entry.direction.value}  {payload}"
 
     def _track_scroll(self, value: int) -> None:
+        if self._following_render:
+            scroll_bar = self.transcript.verticalScrollBar()
+            if value != scroll_bar.maximum():
+                scroll_bar.setValue(scroll_bar.maximum())
+            return
         scroll_bar = self.transcript.verticalScrollBar()
         self._auto_scroll = value >= scroll_bar.maximum()
+
+    def _follow_range(self, minimum: int, maximum: int) -> None:
+        if self._following_render:
+            self.transcript.verticalScrollBar().setValue(maximum)
 
     def _show_transcript_menu(self, position) -> None:
         menu: QMenu = self.transcript.createStandardContextMenu()

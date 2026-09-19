@@ -13,6 +13,7 @@
 - [Release notes](release-notes.md)
 - [Third-party notices](third-party-notices.md)
 - [AT diagnosis reference](reference/at-commands.md)
+- [Historical command coverage](reference/legacy-command-inventory.md)
 
 Use the text reference before supplementary manuals. A filename or marketing
 flyer does not establish command or firmware compatibility.

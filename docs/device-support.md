@@ -2,6 +2,9 @@
 
 Catalog entries describe reviewed command scope; they do not certify every unit,
 firmware, cable, driver or mobile network. Unsupported entries remain hidden.
+Unverified historical AT templates can be prepared for manual review; they are
+not included in automatic diagnostics. Common templates can be shown alongside a
+device profile without certifying that device's support.
 
 | Profile | Current visible scope | Evidence limit |
 | --- | --- | --- |
@@ -12,6 +15,11 @@ firmware, cable, driver or mobile network. Unsupported entries remain hidden.
 | MC93 | No device-specific buttons | No reviewed command specification establishes support. |
 | TC55i | No device-specific buttons | Exact identity and command specification remain unresolved. |
 | MC88 / MC88i | No device-specific buttons | Product material is not an AT command specification. |
+| Analog 56K / Stollmann ISDN, legacy | Individual historical init templates | Unverified; complete sequences require review. |
+
+The [historical inventory](reference/legacy-command-inventory.md) maps the original
+XML buttons and additional local collections to the current commands. TC35i and
+MC55i historical setup entries remain unverified.
 
 The catalog source references are in `catalog/data/generic-at.json` and
 `catalog/data/device-profiles.json`. The consolidated

@@ -1,11 +1,24 @@
 # Candidate acceptance evidence
 
-Date: 2026-09-19. Product: **2.0.0**, initial implementation interval.
+Date: 2026-09-19. Current feedback candidate: **2.0.1**.
 This records automated and observed evidence. User HIL acceptance, clean target
 systems and public redistribution remain pending. No item is frozen or declared
 ready on the strength of an agent simulation.
 
+## 2.0.1 desktop feedback
+
+The title omits build hashes. Autoscroll follows delayed Qt layout changes while
+real scrollbar/keyboard navigation can pause it. Catalog navigation, compact
+category buttons, wider command entry, preparation-only presets and historical
+XML/YAT coverage passed **98 focused tests** with lint and formatting checks.
+The legacy comparison includes all 19 original XML AT entries; remote-access
+labels and personal test values are excluded. New templates remain unverified
+and do not expand automatic diagnostics. No modem command, SMS or call was sent
+for these corrections. Native user/DPI acceptance remains pending.
+
 ## Source and automated coverage
+
+The following evidence records the original **2.0.0** implementation interval.
 
 The continuation starts at `5249e1d` and retains the established serial/protocol
 foundations. Each implementation point has its own local commit and focused tests.

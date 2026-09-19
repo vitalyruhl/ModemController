@@ -2,14 +2,15 @@
   "schema_version": 1,
   "references": {
     "at-text-reference": "docs/reference/at-commands.md",
-    "yat-trial": ".Info/YAT/README.md"
+    "yat-trial": "docs/reference/legacy-command-inventory.md",
+    "legacy-command-inventory": "docs/reference/legacy-command-inventory.md"
   },
   "profiles": [
     {
       "id": "generic-at",
       "sms_text": true,
       "name": "Generic AT",
-      "shipped_notes": "Use only commands documented for the connected modem. Device-specific functions remain unavailable until a reviewed profile is selected.",
+      "shipped_notes": "Standard and historical AT templates. Entries marked not reviewed are drafts, not confirmed modem capabilities. Changing settings, dialing and deleting SMS are prepared in the command field; press Send separately. PIN values use secret prompts.",
       "user_notes": "",
       "commands": [
         {
@@ -20,8 +21,12 @@
           "payload": "AT",
           "help_text": "Checks whether the connected device accepts AT commands.",
           "risk": "read_only",
-          "applicability": ["generic-at"],
-          "references": ["at-text-reference"],
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "at-text-reference"
+          ],
           "verification": "supported",
           "expected_response": "OK",
           "timeout_seconds": 2,
@@ -35,8 +40,12 @@
           "payload": "ATI",
           "help_text": "Requests modem identification text.",
           "risk": "read_only",
-          "applicability": ["generic-at"],
-          "references": ["at-text-reference"],
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "at-text-reference"
+          ],
           "verification": "supported",
           "expected_response": "Identity text and OK",
           "timeout_seconds": 2,
@@ -50,8 +59,12 @@
           "payload": "AT+CPIN?",
           "help_text": "Requests the current SIM readiness state.",
           "risk": "read_only",
-          "applicability": ["generic-at"],
-          "references": ["at-text-reference"],
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "at-text-reference"
+          ],
           "verification": "supported",
           "expected_response": "+CPIN and OK",
           "timeout_seconds": 2,
@@ -65,8 +78,12 @@
           "payload": "AT+CREG?",
           "help_text": "Requests circuit-switched registration status.",
           "risk": "read_only",
-          "applicability": ["generic-at"],
-          "references": ["at-text-reference"],
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "at-text-reference"
+          ],
           "verification": "supported",
           "expected_response": "+CREG and OK",
           "timeout_seconds": 2,
@@ -80,8 +97,12 @@
           "payload": "AT+CSQ",
           "help_text": "Requests received signal quality and bit error rate.",
           "risk": "read_only",
-          "applicability": ["generic-at"],
-          "references": ["at-text-reference"],
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "at-text-reference"
+          ],
           "verification": "supported",
           "expected_response": "+CSQ and OK",
           "timeout_seconds": 2,
@@ -95,8 +116,12 @@
           "payload": "AT+COPS?",
           "help_text": "Requests the current operator selection state.",
           "risk": "read_only",
-          "applicability": ["generic-at"],
-          "references": ["at-text-reference"],
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "at-text-reference"
+          ],
           "verification": "supported",
           "expected_response": "+COPS and OK",
           "timeout_seconds": 5,
@@ -110,8 +135,12 @@
           "payload": "AT+IPR?",
           "help_text": "Requests the configured serial baud rate where supported.",
           "risk": "read_only",
-          "applicability": ["generic-at"],
-          "references": ["at-text-reference"],
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "at-text-reference"
+          ],
           "verification": "supported",
           "expected_response": "+IPR and OK",
           "timeout_seconds": 2,
@@ -125,8 +154,12 @@
           "payload": "AT+CPMS?",
           "help_text": "Requests the selected SMS storage without reading messages.",
           "risk": "read_only",
-          "applicability": ["generic-at"],
-          "references": ["at-text-reference"],
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "at-text-reference"
+          ],
           "verification": "supported",
           "expected_response": "+CPMS and OK",
           "timeout_seconds": 2,
@@ -140,8 +173,12 @@
           "payload": "0D",
           "help_text": "Sends one carriage-return byte without an implicit terminator.",
           "risk": "state_changing",
-          "applicability": ["generic-at"],
-          "references": ["yat-trial"],
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "yat-trial"
+          ],
           "verification": "supported",
           "expected_response": "Device-specific",
           "timeout_seconds": 2,
@@ -155,8 +192,12 @@
           "payload": "0A",
           "help_text": "Sends one line-feed byte without an implicit terminator.",
           "risk": "state_changing",
-          "applicability": ["generic-at"],
-          "references": ["yat-trial"],
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "yat-trial"
+          ],
           "verification": "supported",
           "expected_response": "Device-specific",
           "timeout_seconds": 2,
@@ -170,8 +211,12 @@
           "payload": "0D 0A",
           "help_text": "Sends carriage return followed by line feed exactly once.",
           "risk": "state_changing",
-          "applicability": ["generic-at"],
-          "references": ["yat-trial"],
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "yat-trial"
+          ],
           "verification": "supported",
           "expected_response": "Device-specific",
           "timeout_seconds": 2,
@@ -185,8 +230,12 @@
           "payload": "1B",
           "help_text": "Sends the escape control byte without an implicit terminator.",
           "risk": "state_changing",
-          "applicability": ["generic-at"],
-          "references": ["yat-trial"],
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "yat-trial"
+          ],
           "verification": "supported",
           "expected_response": "Context-dependent",
           "timeout_seconds": 2,
@@ -200,8 +249,12 @@
           "payload": "1A",
           "help_text": "Sends the submit control byte without an implicit terminator.",
           "risk": "state_changing",
-          "applicability": ["generic-at"],
-          "references": ["yat-trial"],
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "yat-trial"
+          ],
           "verification": "supported",
           "expected_response": "Context-dependent",
           "timeout_seconds": 2,
@@ -215,8 +268,12 @@
           "payload": "41 54 0D",
           "help_text": "Sends AT followed by carriage return as three exact bytes.",
           "risk": "state_changing",
-          "applicability": ["generic-at"],
-          "references": ["yat-trial"],
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "yat-trial"
+          ],
           "verification": "supported",
           "expected_response": "OK",
           "timeout_seconds": 2,
@@ -230,8 +287,12 @@
           "payload": "AT+CPIN={pin}",
           "help_text": "Unlocks a SIM only after an explicit maintenance confirmation. The PIN is transient and excluded from history, capture and reports.",
           "risk": "state_changing",
-          "applicability": ["generic-at"],
-          "references": ["at-text-reference"],
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "at-text-reference"
+          ],
           "verification": "supported",
           "expected_response": "OK or CME error",
           "timeout_seconds": 10,
@@ -253,8 +314,12 @@
           "payload": "AT+CFUN=1,1",
           "help_text": "Restarts a supported modem and invalidates current observations. Requires explicit confirmation.",
           "risk": "state_changing",
-          "applicability": ["generic-at"],
-          "references": ["at-text-reference"],
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "at-text-reference"
+          ],
           "verification": "supported",
           "expected_response": "Device-specific restart indication or OK",
           "timeout_seconds": 10,
@@ -268,8 +333,12 @@
           "payload": "AT&F",
           "help_text": "Restores a supported modem profile. Requires explicit confirmation and can change active settings.",
           "risk": "destructive",
-          "applicability": ["generic-at"],
-          "references": ["at-text-reference"],
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "at-text-reference"
+          ],
           "verification": "supported",
           "expected_response": "OK or device-specific error",
           "timeout_seconds": 10,
@@ -283,13 +352,753 @@
           "payload": null,
           "help_text": "Reserved reference for a later reviewed local tool runner.",
           "risk": "state_changing",
-          "applicability": ["windows"],
-          "references": ["at-text-reference"],
+          "applicability": [
+            "windows"
+          ],
+          "references": [
+            "at-text-reference"
+          ],
           "verification": "unverified",
           "expected_response": "Not available",
           "timeout_seconds": 60,
           "parameters": [],
           "external_tool_id": "windows-ras-collector"
+        },
+        {
+          "id": "manufacturer",
+          "label": "Manufacturer",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+CGMI",
+          "help_text": "Historical template: Manufacturer. Check the modem manual before sending.",
+          "risk": "read_only",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "model",
+          "label": "Model",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+CGMM",
+          "help_text": "Historical template: Model. Check the modem manual before sending.",
+          "risk": "read_only",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "firmware",
+          "label": "Firmware",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+CGMR",
+          "help_text": "Historical template: Firmware. Check the modem manual before sending.",
+          "risk": "read_only",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "serial-number",
+          "label": "Serial number / IMEI",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+CGSN",
+          "help_text": "Historical template: Serial number / IMEI. Check the modem manual before sending.",
+          "risk": "read_only",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "capabilities",
+          "label": "Reported capabilities",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+GCAP",
+          "help_text": "Historical template: Reported capabilities. Check the modem manual before sending.",
+          "risk": "read_only",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "battery-status",
+          "label": "Battery status",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+CBC",
+          "help_text": "Historical template: Battery status. Check the modem manual before sending.",
+          "risk": "read_only",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "subscriber-identity",
+          "label": "SIM subscriber identity",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+CIMI",
+          "help_text": "Historical template: SIM subscriber identity. Check the modem manual before sending.",
+          "risk": "read_only",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "clock",
+          "label": "Modem clock",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+CCLK?",
+          "help_text": "Historical template: Modem clock. Check the modem manual before sending.",
+          "risk": "read_only",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "last-call-error",
+          "label": "Last call error",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+CEER",
+          "help_text": "Historical template: Last call error. Check the modem manual before sending.",
+          "risk": "read_only",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "sms-format",
+          "label": "SMS format",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+CMGF?",
+          "help_text": "Historical template: SMS format. Check the modem manual before sending.",
+          "risk": "read_only",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "sms-notifications",
+          "label": "SMS notification settings",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+CNMI?",
+          "help_text": "Historical template: SMS notification settings. Check the modem manual before sending.",
+          "risk": "read_only",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "character-set",
+          "label": "Character set",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+CSCS?",
+          "help_text": "Historical template: Character set. Check the modem manual before sending.",
+          "risk": "read_only",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "character-sets",
+          "label": "Supported character sets",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+CSCS=?",
+          "help_text": "Historical template: Supported character sets. Check the modem manual before sending.",
+          "risk": "read_only",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "phonebook-storage",
+          "label": "Phonebook storage",
+          "category": "Status",
+          "kind": "at",
+          "payload": "AT+CPBS?",
+          "help_text": "Historical template: Phonebook storage. Check the modem manual before sending.",
+          "risk": "read_only",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "sms-text-mode",
+          "label": "Use SMS text mode",
+          "category": "SMS",
+          "kind": "at",
+          "payload": "AT+CMGF=1",
+          "help_text": "Historical template: Use SMS text mode. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "sms-delete-read",
+          "label": "Delete read SMS",
+          "category": "SMS",
+          "kind": "at",
+          "payload": "AT+CMGD=,1",
+          "help_text": "Historical template: Delete read SMS. Check the modem manual before sending.",
+          "risk": "destructive",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "sms-delete-all",
+          "label": "Delete all SMS",
+          "category": "SMS",
+          "kind": "at",
+          "payload": "AT+CMGD=,4",
+          "help_text": "Historical template: Delete all SMS. Check the modem manual before sending.",
+          "risk": "destructive",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "sms-list",
+          "label": "List SMS",
+          "category": "SMS",
+          "kind": "at",
+          "payload": "AT+CMGL=\"ALL\"",
+          "help_text": "Historical template: List SMS. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "registration-notifications",
+          "label": "Report registration changes",
+          "category": "Setup",
+          "kind": "at",
+          "payload": "AT+CREG=1",
+          "help_text": "Historical template: Report registration changes. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "caller-id",
+          "label": "Show caller ID",
+          "category": "Setup",
+          "kind": "at",
+          "payload": "AT+CLIP=1",
+          "help_text": "Historical template: Show caller ID. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "extended-ring",
+          "label": "Extended ring indications",
+          "category": "Setup",
+          "kind": "at",
+          "payload": "AT+CRC=1",
+          "help_text": "Historical template: Extended ring indications. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "sms-notification-enable",
+          "label": "Enable SMS notifications",
+          "category": "SMS",
+          "kind": "at",
+          "payload": "AT+CNMI=1,1",
+          "help_text": "Historical template: Enable SMS notifications. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "sms-storage-mt",
+          "label": "Use combined SMS storage",
+          "category": "SMS",
+          "kind": "at",
+          "payload": "AT+CPMS=\"MT\"",
+          "help_text": "Historical template: Use combined SMS storage. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "hang-up",
+          "label": "Hang up",
+          "category": "Calls",
+          "kind": "at",
+          "payload": "AT+CHUP",
+          "help_text": "Historical template: Hang up. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "redial",
+          "label": "Redial last number",
+          "category": "Calls",
+          "kind": "at",
+          "payload": "ATDL",
+          "help_text": "Historical template: Redial last number. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "reset-profile",
+          "label": "Recall modem profile",
+          "category": "Setup",
+          "kind": "at",
+          "payload": "ATZ",
+          "help_text": "Historical template: Recall modem profile. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "dial-voice",
+          "label": "Dial voice call",
+          "category": "Calls",
+          "kind": "at",
+          "payload": "ATD{number};",
+          "help_text": "Historical template: Dial voice call. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": [
+            {
+              "name": "number",
+              "label": "Telephone number",
+              "required": true,
+              "secret": false,
+              "pattern": "\\+?[0-9*#]{1,20}"
+            }
+          ]
+        },
+        {
+          "id": "dial-data",
+          "label": "Dial data call",
+          "category": "Calls",
+          "kind": "at",
+          "payload": "ATD{number}",
+          "help_text": "Historical template: Dial data call. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": [
+            {
+              "name": "number",
+              "label": "Telephone number",
+              "required": true,
+              "secret": false,
+              "pattern": "\\+?[0-9*#]{1,20}"
+            }
+          ]
+        },
+        {
+          "id": "sms-read",
+          "label": "Read SMS by index",
+          "category": "SMS",
+          "kind": "at",
+          "payload": "AT+CMGR={index}",
+          "help_text": "Historical template: Read SMS by index. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": [
+            {
+              "name": "index",
+              "label": "Storage index",
+              "required": true,
+              "secret": false,
+              "pattern": "[1-9][0-9]{0,3}"
+            }
+          ]
+        },
+        {
+          "id": "sms-delete",
+          "label": "Delete SMS by index",
+          "category": "SMS",
+          "kind": "at",
+          "payload": "AT+CMGD={index}",
+          "help_text": "Historical template: Delete SMS by index. Check the modem manual before sending.",
+          "risk": "destructive",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": [
+            {
+              "name": "index",
+              "label": "Storage index",
+              "required": true,
+              "secret": false,
+              "pattern": "[1-9][0-9]{0,3}"
+            }
+          ]
+        },
+        {
+          "id": "sms-service-center",
+          "label": "Set SMS service center",
+          "category": "SMS",
+          "kind": "at",
+          "payload": "AT+CSCA=\"{number}\"",
+          "help_text": "Historical template: Set SMS service center. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": [
+            {
+              "name": "number",
+              "label": "Telephone number",
+              "required": true,
+              "secret": false,
+              "pattern": "\\+?[0-9*#]{1,20}"
+            }
+          ]
+        },
+        {
+          "id": "phonebook-read",
+          "label": "Read phonebook entry",
+          "category": "Phonebook",
+          "kind": "at",
+          "payload": "AT+CPBR={index}",
+          "help_text": "Historical template: Read phonebook entry. Check the modem manual before sending.",
+          "risk": "read_only",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": [
+            {
+              "name": "index",
+              "label": "Storage index",
+              "required": true,
+              "secret": false,
+              "pattern": "[1-9][0-9]{0,3}"
+            }
+          ]
+        },
+        {
+          "id": "disable-sim-pin",
+          "label": "Disable SIM PIN protection",
+          "category": "SIM",
+          "kind": "at",
+          "payload": "AT+CLCK=\"SC\",0,\"{pin}\"",
+          "help_text": "Historical template: Disable SIM PIN protection. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": [
+            {
+              "name": "pin",
+              "label": "Current SIM PIN",
+              "required": true,
+              "secret": true,
+              "pattern": "[0-9]{4,8}"
+            }
+          ]
+        },
+        {
+          "id": "unblock-sim",
+          "label": "Unblock SIM with PUK",
+          "category": "SIM",
+          "kind": "at",
+          "payload": "AT+CPIN=\"{puk}\",\"{new_pin}\"",
+          "help_text": "The legacy PIN change label actually used PUK recovery. Wrong PUK attempts can permanently block the SIM. Review this action before enabling it; values remain transient.",
+          "risk": "state_changing",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": [
+            {
+              "name": "puk",
+              "label": "SIM PUK (not the current PIN)",
+              "required": true,
+              "secret": true,
+              "pattern": "[0-9]{8}"
+            },
+            {
+              "name": "new_pin",
+              "label": "New SIM PIN",
+              "required": true,
+              "secret": true,
+              "pattern": "[0-9]{4,8}"
+            }
+          ]
+        },
+        {
+          "id": "sms-ira-charset",
+          "label": "Use IRA character set",
+          "category": "SMS",
+          "kind": "at",
+          "payload": "AT+CSCS=\"IRA\"",
+          "help_text": "Prepare IRA character-set selection for the basic ASCII SMS workflow. Confirm modem support before sending; this changes its active character set.",
+          "risk": "state_changing",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
         }
       ]
     }

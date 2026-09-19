@@ -1,16 +1,19 @@
 # Release notes
 
-## 2.0.2 - catalog navigation
-
-The catalog editor follows the selected modem profile and keeps its command list
-and search visible. Protocol and verification fields are grouped under Advanced.
-
 ## 2.0.1 - desktop feedback corrections
 
 The window title shows only the product version. Terminal output continues
 following new replies after wrapped text, resizing and focus changes; deliberately
 scrolling into history still pauses following. Build metadata refreshes when the
 canonical version file changes, avoiding stale installed package versions.
+
+The catalog editor follows the selected modem profile and keeps its command list
+and search visible. Protocol and verification fields are grouped under Advanced.
+Legacy XML/YAT command coverage now includes historical analog, ISDN and cellular
+templates. Unverified templates stay outside automatic diagnostics. Parameterized
+and state-changing AT buttons prepare editable commands without sending; SMS has
+a separate preparation button. Categories use buttons, command spacing is fixed,
+and the terminal input has more horizontal space.
 
 ## 2.0.0 - local candidate preparation
 

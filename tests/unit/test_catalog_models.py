@@ -44,6 +44,8 @@ def test_device_profile_packs_expose_only_reviewed_commands() -> None:
         "tc55i",
         "mc88-mc88i",
         "bg95-m3-observed",
+        "analog-56k-legacy",
+        "stollmann-isdn-legacy",
     }
     assert {command.id for command in catalog.profile("mc55i-qw").visible_commands} == {
         "attention",
@@ -140,7 +142,9 @@ def test_bg95_scope_is_read_only_and_distinct_from_terminal_family():
     assert all(command.is_read_only_diagnostic for command in profile.commands)
     assert profile.command("eps-registration").render() == b"AT+CEREG?"
     assert profile.command("network-info").render() == b"AT+QNWINFO"
-    assert {command.payload for command in catalog.profile("mc55i-qw").commands} == {
+    assert {
+        command.payload for command in catalog.profile("mc55i-qw").visible_commands
+    } == {
         "AT",
         "ATI",
     }

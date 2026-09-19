@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QFontDatabase
 from PySide6.QtWidgets import QApplication
 
@@ -57,7 +58,8 @@ def test_append_while_reading_history_keeps_the_scrollbar_position(qtbot) -> Non
     for label in ("one", "two", "three", "four"):
         _append_block(terminal, label)
     scroll_bar = terminal.transcript.verticalScrollBar()
-    scroll_bar.setValue(scroll_bar.maximum() // 2)
+    scroll_bar.setFocus()
+    qtbot.keyClick(scroll_bar, Qt.Key_PageUp)
     _flush_layout()
     position = scroll_bar.value()
 
@@ -73,17 +75,37 @@ def test_scrolling_to_bottom_resumes_following_new_terminal_entries(qtbot) -> No
     for label in ("one", "two", "three", "four"):
         _append_block(terminal, label)
     scroll_bar = terminal.transcript.verticalScrollBar()
-    scroll_bar.setValue(0)
+    scroll_bar.setFocus()
+    qtbot.keyClick(scroll_bar, Qt.Key_Home)
     _flush_layout()
     assert terminal.is_auto_scroll_paused
 
-    scroll_bar.setValue(scroll_bar.maximum())
+    qtbot.keyClick(scroll_bar, Qt.Key_End)
     _flush_layout()
     _append_block(terminal, "five")
 
     assert not terminal.is_auto_scroll_paused
     assert scroll_bar.value() == scroll_bar.maximum()
     assert "five-23" in terminal.transcript.toPlainText()
+
+
+def test_transcript_page_up_pauses_following_and_preserves_reading_position(
+    qtbot,
+) -> None:
+    terminal = _rendered_terminal(qtbot)
+    for label in ("one", "two", "three", "four"):
+        _append_block(terminal, label)
+    scroll_bar = terminal.transcript.verticalScrollBar()
+    terminal.transcript.setFocus()
+
+    qtbot.keyClick(terminal.transcript, Qt.Key_PageUp)
+    _flush_layout()
+    position = scroll_bar.value()
+    _append_block(terminal, "five")
+
+    assert position < scroll_bar.maximum()
+    assert scroll_bar.value() == position
+    assert terminal.is_auto_scroll_paused
 
 
 def test_wrapped_segoe_replies_stay_at_bottom_through_resize_and_focus(qtbot) -> None:
@@ -117,12 +139,12 @@ def test_main_window_tx_rx_info_burst_keeps_rendered_transcript_at_bottom(
     window.show()
     _flush_layout()
     terminal = window.terminal
+    scroll_bar = terminal.transcript.verticalScrollBar()
     for index in range(48):
         terminal.append_transmitted(f"AT+TEST={index}\r".encode())
         terminal.append_received(f"+TEST: {index}\r\nOK\r\n".encode())
         terminal.append_info(f"Diagnostic {index} complete")
     _flush_layout()
-    scroll_bar = terminal.transcript.verticalScrollBar()
 
     assert scroll_bar.maximum() > 0
     assert scroll_bar.value() == scroll_bar.maximum()

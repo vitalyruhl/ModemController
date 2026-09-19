@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QScrollArea,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -31,6 +32,7 @@ from modem_controller.catalog.models import (
     CommandCatalog,
     CommandKind,
     RiskLevel,
+    VerificationStatus,
     load_starter_catalog,
 )
 from modem_controller.catalog.storage import (
@@ -111,17 +113,34 @@ class MainWindow(QMainWindow):
         self.profile_selector.setObjectName("profileSelector")
         self.category_selector = QComboBox(self)
         self.category_selector.setObjectName("categorySelector")
+        self.category_selector.hide()
+        self.category_buttons = QWidget(self)
+        self.category_layout = QGridLayout(self.category_buttons)
+        self.category_layout.setContentsMargins(0, 0, 0, 0)
+        self.category_layout.setSpacing(6)
+        self.category_layout.setAlignment(Qt.AlignTop)
         self.command_filter = QLineEdit(self)
         self.command_filter.setPlaceholderText("Find command or category")
         self.command_filter.textChanged.connect(self._render_commands)
         self.favorites_only = QCheckBox("Favorites", self)
         self.favorites_only.toggled.connect(self._render_commands)
+        self.common_commands = QCheckBox("Include common AT templates", self)
+        self.common_commands.setChecked(True)
+        self.common_commands.setToolTip(
+            "Common templates are prepared for manual review; "
+            "they do not certify support by the selected modem."
+        )
+        self.common_commands.toggled.connect(self._change_profile)
         self.notes = QPlainTextEdit(self)
         self.notes.setReadOnly(True)
         self.notes.setMaximumBlockCount(20)
+        self.notes.setMaximumHeight(70)
         self.notes.setObjectName("profileNotes")
         self.command_group = QGroupBox("Commands", self)
         self.command_layout = QGridLayout(self.command_group)
+        self.command_layout.setAlignment(Qt.AlignTop)
+        self.command_layout.setHorizontalSpacing(6)
+        self.command_layout.setVerticalSpacing(6)
         self.terminal = TerminalWorkspace(parent=self)
         self.sms_dialog = SmsDialog(self)
         self.sms_dialog.status_requested.connect(self._query_sms_status)
@@ -129,9 +148,11 @@ class MainWindow(QMainWindow):
         self.sms_dialog.send_requested.connect(self._send_sms)
         self.sms_action = QAction("SMS...", self)
         self.sms_action.triggered.connect(self._show_sms_dialog)
+        self.prepare_sms_button = QPushButton("Prepare SMS...", self)
+        self.prepare_sms_button.clicked.connect(self._show_sms_dialog)
         self.menuBar().addMenu("Messaging").addAction(self.sms_action)
         self._create_logging_menu()
-        self.tools_action = self.menuBar().addAction("Local tools...")
+        self.tools_action = self.menuBar().addAction("Plugins...")
         self.tools_action.triggered.connect(self._show_tools)
         self.menuBar().addMenu("Evidence").addAction(
             "Preview / export report...", self._preview_report
@@ -166,11 +187,16 @@ class MainWindow(QMainWindow):
         sidebar_layout = QVBoxLayout(sidebar)
         sidebar_layout.addWidget(self.connection_panel)
         sidebar_layout.addWidget(self.profile_selector)
-        sidebar_layout.addWidget(self.category_selector)
+        sidebar_layout.addWidget(self.notes)
+        sidebar_layout.addWidget(self.category_buttons)
         sidebar_layout.addWidget(self.command_filter)
         sidebar_layout.addWidget(self.favorites_only)
-        sidebar_layout.addWidget(self.notes)
-        sidebar_layout.addWidget(self.command_group, 1)
+        sidebar_layout.addWidget(self.common_commands)
+        sidebar_layout.addWidget(self.prepare_sms_button)
+        command_scroll = QScrollArea(sidebar)
+        command_scroll.setWidgetResizable(True)
+        command_scroll.setWidget(self.command_group)
+        sidebar_layout.addWidget(command_scroll, 1)
 
         splitter = QSplitter(self)
         splitter.addWidget(sidebar)
@@ -209,17 +235,81 @@ class MainWindow(QMainWindow):
             profile.shipped_notes + self._user_notes(profile.user_notes)
         )
         current = self.category_selector.currentText()
-        categories = sorted({command.category for command in profile.visible_commands})
+        categories = sorted(
+            {command.category for command in self._available_commands()}
+        )
         self.category_selector.blockSignals(True)
         self.category_selector.clear()
         self.category_selector.addItems(categories)
         if current in categories:
             self.category_selector.setCurrentText(current)
+        elif "Status" in categories:
+            self.category_selector.setCurrentText("Status")
         self.category_selector.blockSignals(False)
+        self._render_categories()
         self._render_commands()
         self._set_sms_enabled(self._preset_execution_enabled)
 
+    def _available_commands(self) -> tuple[CatalogCommand, ...]:
+        profile = self._selected_profile()
+        commands = list(profile.commands)
+        if self.common_commands.isChecked() and profile.id != "generic-at":
+            generic = next(
+                (p for p in self._catalog.profiles if p.id == "generic-at"), None
+            )
+            if generic is not None:
+                ids = {c.id for c in commands}
+                payloads = {c.payload for c in commands if c.payload is not None}
+                commands.extend(
+                    c
+                    for c in generic.commands
+                    if c.id not in ids
+                    and c.payload not in payloads
+                    and c.kind is CommandKind.AT
+                )
+        return tuple(
+            c
+            for c in commands
+            if c.is_visible
+            or (
+                c.verification is VerificationStatus.UNVERIFIED
+                and c.kind in {CommandKind.AT, CommandKind.SEQUENCE}
+            )
+        )
+
+    def _prepares_command(self, command: CatalogCommand) -> bool:
+        return (
+            command.kind is CommandKind.AT
+            and not any(p.secret for p in command.parameters)
+            and (
+                command.risk is not RiskLevel.READ_ONLY
+                or bool(command.parameters)
+                or not command.is_visible
+                or command not in self._selected_profile().commands
+            )
+        )
+
+    def _render_categories(self) -> None:
+        while self.category_layout.count():
+            item = self.category_layout.takeAt(0)
+            if item.widget() is not None:
+                item.widget().deleteLater()
+        for index in range(self.category_selector.count()):
+            category = self.category_selector.itemText(index)
+            button = QPushButton(category, self.category_buttons)
+            button.setCheckable(True)
+            button.setChecked(category == self.category_selector.currentText())
+            button.setFixedHeight(30)
+            button.clicked.connect(
+                lambda checked=False,
+                selected=category: self.category_selector.setCurrentText(selected)
+            )
+            self.category_layout.addWidget(button, index // 3, index % 3)
+
     def _render_commands(self) -> None:
+        for index in range(self.category_layout.count()):
+            button = self.category_layout.itemAt(index).widget()
+            button.setChecked(button.text() == self.category_selector.currentText())
         while self.command_layout.count():
             item = self.command_layout.takeAt(0)
             if item.widget() is not None:
@@ -228,7 +318,7 @@ class MainWindow(QMainWindow):
         category = self.category_selector.currentText()
         commands = [
             command
-            for command in self._selected_profile().visible_commands
+            for command in self._available_commands()
             if command.category == category
             and self.command_filter.text().casefold()
             in f"{command.label} {command.category} {command.payload}".casefold()
@@ -240,15 +330,29 @@ class MainWindow(QMainWindow):
             )
         ]
         for index, command in enumerate(commands):
-            button = QPushButton(command.label, self.command_group)
-            button.setToolTip(command.help_text)
+            prepares = self._prepares_command(command)
+            label = f"{command.label}..." if prepares else command.label
+            button = QPushButton(label, self.command_group)
+            button.setFixedHeight(32)
+            button.setToolTip(
+                command.help_text
+                + (
+                    "\nPrepare in the command field; press Send separately."
+                    if prepares
+                    else ""
+                )
+                + ("\nNot reviewed for this modem." if not command.is_visible else "")
+            )
             button.setEnabled(
-                self._preset_execution_enabled
-                and not self._workflow_active
+                not self._workflow_active
                 and (
-                    command.risk is RiskLevel.READ_ONLY
-                    or command.kind
-                    in {CommandKind.AT, CommandKind.BYTES, CommandKind.SEQUENCE}
+                    prepares
+                    or (
+                        self._preset_execution_enabled
+                        and command.is_visible
+                        and command.kind
+                        in {CommandKind.AT, CommandKind.BYTES, CommandKind.SEQUENCE}
+                    )
                 )
             )
             button.clicked.connect(
@@ -257,7 +361,15 @@ class MainWindow(QMainWindow):
             self.command_layout.addWidget(button, index // 2, index % 2)
 
     def _request_preset(self, command: CatalogCommand) -> None:
-        if not self._preset_execution_enabled or self._workflow_active:
+        if (
+            self._workflow_active
+            or command.verification is VerificationStatus.UNSUPPORTED
+        ):
+            return
+        if self._prepares_command(command):
+            self._prepare_command(command)
+            return
+        if not self._preset_execution_enabled or not command.is_visible:
             return
         if command.kind is CommandKind.SEQUENCE:
             self._request_sequence(command)
@@ -277,6 +389,34 @@ class MainWindow(QMainWindow):
             self._request_control_bytes(command)
             return
         self._request_maintenance(command)
+
+    def _prepare_command(self, command: CatalogCommand) -> None:
+        values = {}
+        for parameter in command.parameters:
+            value, accepted = QInputDialog.getText(
+                self, f"Prepare {command.label}", parameter.label, QLineEdit.Normal
+            )
+            if not accepted:
+                return
+            values[parameter.name] = value
+        try:
+            payload = command.render(values).decode("ascii")
+            if any(
+                ord(character) < 32 or ord(character) == 127 for character in payload
+            ):
+                raise ValueError(
+                    "A command draft must be one line without control bytes."
+                )
+        except (ValueError, UnicodeError) as error:
+            self.terminal.validation_message.setText(str(error))
+            return
+        self.terminal.command_input.setText(payload)
+        self.terminal.command_input.setFocus()
+        self.terminal.validation_message.setText(
+            "Prepared only. Check the command, then press Send."
+            if command.is_visible
+            else "Not reviewed for this modem. Check its manual before pressing Send."
+        )
 
     def _request_control_bytes(self, command: CatalogCommand) -> None:
         answer = QMessageBox.warning(
@@ -611,6 +751,11 @@ class MainWindow(QMainWindow):
             and self._selected_profile().sms_text
         )
         self.sms_action.setEnabled(enabled and not self._workflow_active)
+        self.prepare_sms_button.setEnabled(not self._workflow_active)
+        self.prepare_sms_button.setToolTip(
+            "Enter a recipient and message without sending. "
+            "Sending requires a connected SMS-capable profile."
+        )
         self.sms_dialog.set_available(enabled, self._workflow_active)
 
     def _show_diagnostics(self, results: tuple[DiagnosticResult, ...]) -> None:
@@ -658,11 +803,7 @@ class MainWindow(QMainWindow):
             self._connection_controller.shutdown()
             self._connection_controller = None
             self._disconnected()
-        directory = (
-            self._settings_store.directory
-            if self._settings_store
-            else application_directory()
-        )
+        directory = application_directory()
         self.set_workflow_active(True)
         try:
             dialog = ToolsDialog(directory, self)

@@ -12,6 +12,13 @@ search and command list stay visible while the form scrolls. Select another butt
 in the list on the left. Common fields appear first; expand **Advanced** for protocol
 details, verification, sequence steps and parameter definitions.
 
+The main window uses category buttons. Non-secret parameterized or state-changing
+AT presets fill the command field; inspect the result and press **Send** separately.
+**Prepare SMS** opens recipient/message fields without sending. Reviewed simple
+status queries retain one-click sending. PIN/PUK values use transient secret
+prompts, and complete sequences require review. See the
+[historical inventory](reference/legacy-command-inventory.md) for inherited presets.
+
 PIN/password values belong only in transient secret prompts. Literal credential
 commands are rejected from native import/export and persisted catalog changes.
 If saving fails, closing requires retry, cancellation or deliberate discard.
@@ -26,7 +33,7 @@ Each step references a command ID in the same profile. Example shape:
 {"command_id": "attention", "expected_contains": "", "timeout_seconds": 2, "delay_seconds": 0}
 ```
 
-All referenced commands must be reviewed AT or exact-byte commands. Each step
+Before execution, all referenced commands must be reviewed AT or exact-byte commands. Each step
 requires a final `OK`; a nonempty `expected_contains` additionally matches text
 in response lines. Timeouts are at most 60 seconds per step, optional delays at
 most 10 seconds, and the desktop run has a 30-second total budget. The configured
@@ -36,7 +43,8 @@ Sequences never evaluate code, macros, nested sequences or external tools.
 The complete step list and risks require confirmation. Failure or cancellation
 stops without retry or automatic resume. Secret steps are allowed only last,
 without a text condition. Reconnect after completion before continuing work.
-No device-specific initialization sequence is supplied without reviewed evidence.
+Historical initialization templates may be stored as unverified sequences.
+No device-specific initialization sequence is enabled without reviewed evidence.
 # Legacy XML and VCE
 
 Choose **Import legacy** in the catalog editor to preview an XML or VCE file.

@@ -4,7 +4,8 @@
     "at-text-reference": "docs/reference/at-commands.md",
     "tc35-at-manual": "docs/reference/modems/tc35/tc3x_atc_01_v0400.pdf",
     "quectel-bg95-at-v2": "https://quectel.com/content/uploads/2021/03/Quectel_BG95BG77BG600L_Series_AT_Commands_Manual_V2.0-2.pdf",
-    "bg95-observation": "docs/device-support.md"
+    "bg95-observation": "docs/device-support.md",
+    "legacy-command-inventory": "docs/reference/legacy-command-inventory.md"
   },
   "profiles": [
     {
@@ -49,6 +50,25 @@
           "verification": "supported",
           "expected_response": "Identity text and OK",
           "timeout_seconds": 2,
+          "parameters": []
+        },
+        {
+          "id": "legacy-urc-port",
+          "label": "Legacy URC port (check module)",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "AT+QURCCFG=\"urcport\",\"uart1\"",
+          "help_text": "The historical Q initialization notes include this module-specific command. The terminal family name does not establish compatibility; check the embedded module manual.",
+          "risk": "state_changing",
+          "applicability": [
+            "mc55i-qw"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
           "parameters": []
         }
       ]
@@ -115,6 +135,302 @@
           "expected_response": "+CSQ and OK",
           "timeout_seconds": 2,
           "parameters": []
+        },
+        {
+          "id": "init-step-01",
+          "label": "Factory defaults",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "AT&F",
+          "help_text": "Historical template: Factory defaults. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "tc35-tc35i"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-02",
+          "label": "Recall profile",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "ATZ",
+          "help_text": "Historical template: Recall profile. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "tc35-tc35i"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-03",
+          "label": "Select incoming call service",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "AT+CSNS=0",
+          "help_text": "Historical template: Select incoming call service. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "tc35-tc35i"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-04",
+          "label": "Report registration changes",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "AT+CREG=1",
+          "help_text": "Historical template: Report registration changes. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "tc35-tc35i"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-05",
+          "label": "Show caller ID",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "AT+CLIP=1",
+          "help_text": "Historical template: Show caller ID. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "tc35-tc35i"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-06",
+          "label": "Extended ring indications",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "AT+CRC=1",
+          "help_text": "Historical template: Extended ring indications. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "tc35-tc35i"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-07",
+          "label": "Legacy #CMGF spelling (unverified)",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "AT#CMGF=1",
+          "help_text": "Historical template: Legacy #CMGF spelling (unverified). Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "tc35-tc35i"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-08",
+          "label": "SMS notifications",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "AT+CNMI=1,1",
+          "help_text": "Historical template: SMS notifications. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "tc35-tc35i"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-09",
+          "label": "Combined SMS storage",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "AT+CPMS=\"MT\"",
+          "help_text": "Historical template: Combined SMS storage. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "tc35-tc35i"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-10",
+          "label": "Save settings",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "AT&W",
+          "help_text": "Historical template: Save settings. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "tc35-tc35i"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-11",
+          "label": "Show settings",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "AT&V",
+          "help_text": "Historical template: Show settings. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "tc35-tc35i"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-legacy",
+          "label": "Historical initialization (review required)",
+          "category": "Legacy initialization",
+          "kind": "sequence",
+          "payload": null,
+          "help_text": "Source-preserved initialization split into individual AT commands. It can reset settings, auto-answer calls and save persistent changes. Review each step for the exact modem before enabling this sequence.",
+          "risk": "state_changing",
+          "applicability": [
+            "tc35-tc35i"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": [],
+          "sequence_steps": [
+            {
+              "command_id": "init-step-01",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-02",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-03",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-04",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-05",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-06",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-07",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-08",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-09",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-10",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-11",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            }
+          ]
         }
       ]
     },
@@ -374,6 +690,439 @@
           "expected_response": "Documented response and OK",
           "timeout_seconds": 3,
           "parameters": []
+        }
+      ]
+    },
+    {
+      "id": "analog-56k-legacy",
+      "name": "Analog 56K (legacy templates)",
+      "shipped_notes": "Historical XMLSettings.xml templates, without device or firmware acceptance. Individual commands can be prepared; the complete sequence requires review. Initialization changes settings and can enable automatic answering.",
+      "user_notes": "",
+      "commands": [
+        {
+          "id": "init-step-01",
+          "label": "Factory defaults",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "AT&F",
+          "help_text": "Historical template: Factory defaults. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "analog-56k-legacy"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-02",
+          "label": "Ignore DTR",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "AT&D0",
+          "help_text": "Historical template: Ignore DTR. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "analog-56k-legacy"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-03",
+          "label": "Speaker volume low",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "ATL0",
+          "help_text": "Historical template: Speaker volume low. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "analog-56k-legacy"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-04",
+          "label": "Auto-answer after one ring",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "ATS0=1",
+          "help_text": "Historical template: Auto-answer after one ring. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "analog-56k-legacy"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-05",
+          "label": "Disable flow control",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "AT&K0",
+          "help_text": "Historical template: Disable flow control. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "analog-56k-legacy"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-06",
+          "label": "Save settings",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "AT&W",
+          "help_text": "Historical template: Save settings. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "analog-56k-legacy"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-07",
+          "label": "Show settings",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "AT&V",
+          "help_text": "Historical template: Show settings. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "analog-56k-legacy"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-legacy",
+          "label": "Historical initialization (review required)",
+          "category": "Legacy initialization",
+          "kind": "sequence",
+          "payload": null,
+          "help_text": "Source-preserved initialization split into individual AT commands. It can reset settings, auto-answer calls and save persistent changes. Review each step for the exact modem before enabling this sequence.",
+          "risk": "state_changing",
+          "applicability": [
+            "analog-56k-legacy"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": [],
+          "sequence_steps": [
+            {
+              "command_id": "init-step-01",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-02",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-03",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-04",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-05",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-06",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-07",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "stollmann-isdn-legacy",
+      "name": "Stollmann ISDN (legacy templates)",
+      "shipped_notes": "Historical XMLSettings.xml templates, without device or firmware acceptance. Individual commands can be prepared; the complete sequence requires review. Initialization changes settings and can enable automatic answering.",
+      "user_notes": "",
+      "commands": [
+        {
+          "id": "init-step-01",
+          "label": "Factory defaults",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "AT&F",
+          "help_text": "Historical template: Factory defaults. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "stollmann-isdn-legacy"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-02",
+          "label": "Legacy B10 option",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "ATB10",
+          "help_text": "Historical template: Legacy B10 option. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "stollmann-isdn-legacy"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-03",
+          "label": "Ignore DTR",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "AT&D0",
+          "help_text": "Historical template: Ignore DTR. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "stollmann-isdn-legacy"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-04",
+          "label": "Auto-answer after one ring",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "ATS0=1",
+          "help_text": "Historical template: Auto-answer after one ring. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "stollmann-isdn-legacy"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-05",
+          "label": "Disable flow control",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "AT&K0",
+          "help_text": "Historical template: Disable flow control. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "stollmann-isdn-legacy"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-06",
+          "label": "Legacy %B6 option",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "AT%B6",
+          "help_text": "Historical template: Legacy %B6 option. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "stollmann-isdn-legacy"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-07",
+          "label": "Save settings",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "AT&W",
+          "help_text": "Historical template: Save settings. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "stollmann-isdn-legacy"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-step-08",
+          "label": "Show settings",
+          "category": "Legacy initialization",
+          "kind": "at",
+          "payload": "AT&V",
+          "help_text": "Historical template: Show settings. Check the modem manual before sending.",
+          "risk": "state_changing",
+          "applicability": [
+            "stollmann-isdn-legacy"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": []
+        },
+        {
+          "id": "init-legacy",
+          "label": "Historical initialization (review required)",
+          "category": "Legacy initialization",
+          "kind": "sequence",
+          "payload": null,
+          "help_text": "Source-preserved initialization split into individual AT commands. It can reset settings, auto-answer calls and save persistent changes. Review each step for the exact modem before enabling this sequence.",
+          "risk": "state_changing",
+          "applicability": [
+            "stollmann-isdn-legacy"
+          ],
+          "references": [
+            "legacy-command-inventory"
+          ],
+          "verification": "unverified",
+          "expected_response": "Device-specific response or error",
+          "timeout_seconds": 5,
+          "parameters": [],
+          "sequence_steps": [
+            {
+              "command_id": "init-step-01",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-02",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-03",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-04",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-05",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-06",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-07",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "init-step-08",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            }
+          ]
         }
       ]
     }
