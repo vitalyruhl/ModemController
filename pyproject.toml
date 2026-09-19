@@ -20,6 +20,9 @@ modem-console = "modem_controller.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools]
+include-package-data = false
+
 [tool.setuptools.package-data]
 modem_controller = ["catalog/data/*.json"]
 

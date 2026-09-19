@@ -677,7 +677,13 @@ class MainWindow(QMainWindow):
             str(current_path)
             if current_path is not None
             else str(
-                last_directory(self._settings, "logs", Path.home())
+                last_directory(
+                    self._settings,
+                    "logs",
+                    self._settings_store.directory
+                    if self._settings_store
+                    else Path.home(),
+                )
                 / "modem-session.log"
             ),
             "Log files (*.log);;All files (*)",
@@ -900,7 +906,10 @@ class MainWindow(QMainWindow):
         if not directory:
             return
         candidate = SettingsStore(Path(directory))
-        if candidate.path.exists():
+        if candidate.path.exists() or any(
+            (candidate.directory / name).exists()
+            for name in ("generic-at.json", "device-profiles.json")
+        ):
             QMessageBox.warning(
                 self,
                 "Existing settings",
@@ -908,6 +917,8 @@ class MainWindow(QMainWindow):
             )
             return
         previous, blocked = self._settings_store, self._save_blocked
+        previous_defaults = self._defaults
+        self._defaults = load_starter_catalog()
         self._settings_store, self._save_blocked = candidate, False
         if self._save_preferences():
             try:
@@ -921,6 +932,7 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"Settings location: {directory}")
         else:
             self._settings_store, self._save_blocked = previous, blocked
+            self._defaults = previous_defaults
 
     def _selected_profile(self):
         return self._catalog.profile(self.profile_selector.currentData())

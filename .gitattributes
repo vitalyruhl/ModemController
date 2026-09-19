@@ -1,2 +1,4 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+# Preserve upstream license bytes and their recorded SHA-256 provenance.
+docs/licenses/** -text

@@ -1,6 +1,8 @@
 import importlib.util
 from pathlib import Path
 
+import pytest
+
 SCRIPT_PATH = Path(__file__).parents[2] / "tools" / "build_portable.py"
 SPEC = importlib.util.spec_from_file_location("build_portable", SCRIPT_PATH)
 assert SPEC is not None and SPEC.loader is not None
@@ -14,10 +16,126 @@ def test_portable_build_uses_onedir_and_collects_application_data() -> None:
     assert command[:3] == [command[0], "-m", "PyInstaller"]
     assert "--onedir" in command
     assert "--windowed" in command
-    assert "--collect-data" in command
-    assert command[command.index("--collect-data") + 1] == "modem_controller"
+    assert "--collect-data" not in command
+    assert "--add-data" in command
+    assert command[command.index("--add-data") + 1].endswith(
+        ":modem_controller/catalog/data"
+    )
     assert command[command.index("--name") + 1] == build_portable.BUNDLE_NAME
     assert (
         Path(command[-1])
         == build_portable.PROJECT_ROOT / "src" / "modem_controller" / "app.py"
     )
+
+
+def test_console_recipe_is_headless_and_bundles_metadata():
+    command = build_portable.build_command(console=True)
+    assert "--console" in command and "--windowed" not in command
+    assert "--copy-metadata" in command
+    assert command[-1].endswith("cli.py")
+
+
+def test_flat_catalog_sidecar_preserves_edits_and_new_defaults(tmp_path):
+    import json
+    from dataclasses import replace
+
+    from modem_controller.catalog.models import VerificationStatus, load_starter_catalog
+    from modem_controller.catalog.portable import (
+        load_portable_catalog,
+        seed_catalog_files,
+    )
+
+    defaults = load_starter_catalog()
+    seed_catalog_files(tmp_path)
+    source = tmp_path / "generic-at.json"
+    data = json.loads(source.read_text())
+    data["profiles"][0]["commands"][0]["payload"] = "AT+CHANGED"
+    source.write_text(json.dumps(data))
+    changed = source.read_bytes()
+    seed_catalog_files(tmp_path)
+    assert source.read_bytes() == changed
+    profile = defaults.profiles[0]
+    updated = replace(
+        defaults,
+        profiles=(
+            replace(profile, shipped_notes="New release notes"),
+            *defaults.profiles[1:],
+        ),
+    )
+    catalog = load_portable_catalog(tmp_path, defaults=updated)
+    assert catalog.profiles[0].shipped_notes == "New release notes"
+    command = catalog.profile(data["profiles"][0]["id"]).commands[0]
+    assert command.payload == "AT+CHANGED"
+    assert command.verification == VerificationStatus.UNVERIFIED
+
+
+def test_portable_paths_follow_executable_not_cwd(monkeypatch, tmp_path):
+    import sys
+
+    from modem_controller.paths import application_directory
+
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "ModemController.exe"))
+    assert application_directory() == tmp_path
+
+
+def test_default_settings_are_flat(tmp_path):
+    from modem_controller.catalog.storage import choose_settings_location
+
+    app = tmp_path / "app"
+    assert (
+        choose_settings_location(app, user_directory=tmp_path / "user").directory == app
+    )
+
+
+def test_artifact_audit_rejects_source_settings(tmp_path):
+    from modem_controller.catalog.storage import Settings, SettingsStore
+
+    SettingsStore(tmp_path).save(Settings())
+    build_portable.audit_bundle(tmp_path)
+    SettingsStore(tmp_path / "_internal" / "modem_controller" / "data").save(Settings())
+    with pytest.raises(ValueError, match="Personal source settings"):
+        build_portable.audit_bundle(tmp_path)
+
+
+def test_corrupt_sidecar_is_preserved(tmp_path):
+    from modem_controller.catalog.portable import load_portable_catalog
+    from modem_controller.catalog.storage import StorageError
+
+    path = tmp_path / "generic-at.json"
+    path.write_text("invalid")
+    with pytest.raises(StorageError, match="generic-at.json"):
+        load_portable_catalog(tmp_path)
+    assert path.read_text() == "invalid"
+
+
+def test_moving_settings_preserves_external_catalog_notes(qtbot, monkeypatch, tmp_path):
+    from dataclasses import replace
+
+    from modem_controller.catalog.models import load_starter_catalog
+    from modem_controller.catalog.storage import SettingsStore, merge_catalog_overlay
+    from modem_controller.ui import main_window as module
+
+    defaults = load_starter_catalog()
+    changed = replace(
+        defaults,
+        profiles=(
+            replace(defaults.profiles[0], shipped_notes="Sidecar note"),
+            *defaults.profiles[1:],
+        ),
+    )
+    window = module.MainWindow(
+        catalog=changed,
+        port_provider=lambda: [],
+        settings_store=SettingsStore(tmp_path / "old"),
+    )
+    qtbot.addWidget(window)
+    destination = tmp_path / "new"
+    monkeypatch.setattr(
+        module.QFileDialog, "getExistingDirectory", lambda *a: str(destination)
+    )
+    window._choose_settings_directory()
+    restored = merge_catalog_overlay(
+        defaults, SettingsStore(destination).load().settings.catalog_changes
+    )
+    assert restored.profiles[0].shipped_notes == "Sidecar note"

@@ -147,7 +147,7 @@ def choose_settings_location(
 ) -> SettingsLocation:
     """Prefer an explicit writable portable path, otherwise use a visible fallback."""
 
-    candidate = portable_directory or application_directory / "data"
+    candidate = portable_directory or application_directory
     try:
         candidate.mkdir(parents=True, exist_ok=True)
         _probe_directory(candidate)

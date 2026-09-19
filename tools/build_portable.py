@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import shutil
 import subprocess
 import sys
+import uuid
+from datetime import UTC, datetime
 from pathlib import Path
+
+from modem_controller.catalog.portable import seed_catalog_files
+from modem_controller.catalog.storage import Settings, SettingsStore
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DIST_DIRECTORY = PROJECT_ROOT / "dist"
@@ -13,7 +20,9 @@ BUILD_DIRECTORY = PROJECT_ROOT / "build" / "pyinstaller"
 BUNDLE_NAME = "ModemController"
 
 
-def build_command() -> list[str]:
+def build_command(
+    *, console: bool = False, destination: Path = DIST_DIRECTORY
+) -> list[str]:
     return [
         sys.executable,
         "-m",
@@ -21,26 +30,111 @@ def build_command() -> list[str]:
         "--noconfirm",
         "--clean",
         "--onedir",
-        "--windowed",
+        "--console" if console else "--windowed",
         "--name",
-        BUNDLE_NAME,
-        "--collect-data",
-        "modem_controller",
+        "ModemConsole" if console else BUNDLE_NAME,
+        "--contents-directory",
+        "_console" if console else "_internal",
+        "--additional-hooks-dir",
+        str(PROJECT_ROOT / "tools" / "pyinstaller-hooks"),
+        "--add-data",
+        str(PROJECT_ROOT / "src" / "modem_controller" / "catalog" / "data")
+        + ":modem_controller/catalog/data",
+        "--copy-metadata",
+        "modem-controller-rs232",
         "--distpath",
-        str(DIST_DIRECTORY),
+        str(destination),
         "--workpath",
         str(BUILD_DIRECTORY),
         "--specpath",
         str(BUILD_DIRECTORY),
-        str(PROJECT_ROOT / "src" / "modem_controller" / "app.py"),
+        str(
+            PROJECT_ROOT
+            / "src"
+            / "modem_controller"
+            / ("cli.py" if console else "app.py")
+        ),
     ]
 
 
+def audit_bundle(bundle: Path) -> None:
+    """Fail closed if a collector accidentally includes personal/local material."""
+    for path in bundle.rglob("*"):
+        relative = path.relative_to(bundle)
+        if any(
+            part in {".Plan", ".agents", ".Temp", ".Old_Version", ".git"}
+            for part in relative.parts
+        ):
+            raise ValueError("Local-only material in portable payload")
+        if path.name == "settings.json" and path.parent != bundle:
+            raise ValueError("Personal source settings in portable payload")
+        if path.suffix.lower() in {".log", ".yacps", ".inf"}:
+            raise ValueError("Unexpected log/reference/driver in portable payload")
+    if (
+        Settings.from_dict(json.loads((bundle / "settings.json").read_text()))
+        != Settings()
+    ):
+        raise ValueError("Portable initial settings must be blank defaults")
+
+
 def build() -> Path:
-    subprocess.run(build_command(), check=True, cwd=PROJECT_ROOT)
-    archive = shutil.make_archive(
-        str(DIST_DIRECTORY / BUNDLE_NAME), "zip", DIST_DIRECTORY, BUNDLE_NAME
+    stage = BUILD_DIRECTORY / ("stage-" + uuid.uuid4().hex)
+    for console in (False, True):
+        subprocess.run(
+            build_command(console=console, destination=stage),
+            check=True,
+            cwd=PROJECT_ROOT,
+        )
+    bundle = stage / BUNDLE_NAME
+    shutil.copy2(stage / "ModemConsole" / "ModemConsole.exe", bundle)
+    shutil.copytree(stage / "ModemConsole" / "_console", bundle / "_console")
+    seed_catalog_files(bundle)
+    SettingsStore(bundle).save(Settings())
+    shutil.copy2(PROJECT_ROOT / "LICENSE", bundle / "LICENSE.txt")
+    help_directory = bundle / "help"
+    help_directory.mkdir()
+    for name in (
+        "console.md",
+        "catalog-editing.md",
+        "privacy.md",
+        "device-support.md",
+        "portable-build.md",
+        "third-party-notices.md",
+    ):
+        shutil.copy2(PROJECT_ROOT / "docs" / name, help_directory / name)
+    shutil.copytree(PROJECT_ROOT / "docs" / "licenses", bundle / "licenses")
+    for metadata in bundle.rglob("modem_controller_rs232-*.dist-info"):
+        for item in metadata.iterdir():
+            if item.is_file() and item.name != "METADATA":
+                if not item.resolve().is_relative_to(bundle.resolve()):
+                    raise RuntimeError("Unexpected metadata path")
+                item.unlink()
+    audit_bundle(bundle)
+    contents = {
+        str(path.relative_to(bundle)).replace("\\", "/"): hashlib.sha256(
+            path.read_bytes()
+        ).hexdigest()
+        for path in sorted(bundle.rglob("*"))
+        if path.is_file()
+    }
+    (bundle / "contents-sha256.json").write_text(
+        json.dumps(contents, indent=2) + "\n", encoding="utf-8"
     )
+    name = BUNDLE_NAME + "-" + datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+    target = DIST_DIRECTORY / name
+    DIST_DIRECTORY.mkdir(exist_ok=True)
+    if target.exists():
+        raise FileExistsError(target)
+    shutil.copytree(bundle, target)
+    archive = shutil.make_archive(
+        str(DIST_DIRECTORY / name), "zip", DIST_DIRECTORY, name
+    )
+    resolved = stage.resolve()
+    if not resolved.is_relative_to(
+        BUILD_DIRECTORY.resolve()
+    ) or not resolved.name.startswith("stage-"):
+        raise RuntimeError("Unexpected build staging path")
+    shutil.rmtree(resolved)
     return Path(archive)
 
 
