@@ -26,6 +26,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from modem_controller.catalog.legacy_import import (
+    import_reviewed_selection,
+    load_legacy,
+)
 from modem_controller.catalog.models import (
     CommandCatalog,
     CommandKind,
@@ -39,6 +43,7 @@ from modem_controller.catalog.storage import (
     import_catalog_json,
     validate_persisted_catalog,
 )
+from modem_controller.ui.legacy_import_dialog import LegacyImportDialog
 
 
 class CatalogEditor(QWidget):
@@ -126,6 +131,7 @@ class CatalogEditor(QWidget):
             ("Move up", lambda: self.move_selected(-1)),
             ("Move down", lambda: self.move_selected(1)),
             ("Import JSON", self._import),
+            ("Import legacy", self._import_legacy),
             ("Export profile", self._export),
         ):
             button = QPushButton(label, self)
@@ -500,6 +506,35 @@ class CatalogEditor(QWidget):
             self.profile_selector.blockSignals(False)
             self._load_profile()
             self.directory_used.emit("import", str(Path(filename).parent))
+        except (ValueError, OSError, RuntimeError) as error:
+            self.message.setText(str(error))
+
+    def _import_legacy(self) -> None:
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Preview legacy commands",
+            self._directory("import"),
+            "Legacy commands (*.xml *.vce)",
+        )
+        if not filename:
+            return
+        try:
+            preview = LegacyImportDialog(load_legacy(Path(filename)), self)
+            if not preview.exec():
+                return
+            candidate = import_reviewed_selection(
+                self.catalog, preview.selected_entries()
+            )
+            self.catalog = candidate
+            self.catalog_changed.emit(candidate)
+            profile = candidate.profiles[-1]
+            self.profile_selector.addItem(profile.name, profile.id)
+            self.search.clear()
+            self.select_profile(profile.id)
+            self.directory_used.emit("import", str(Path(filename).parent))
+            self.message.setText(
+                "Imported as unverified. Review each command before enabling."
+            )
         except (ValueError, OSError, RuntimeError) as error:
             self.message.setText(str(error))
 

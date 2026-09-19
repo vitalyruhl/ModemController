@@ -32,3 +32,15 @@ The complete step list and risks require confirmation. Failure or cancellation
 stops without retry or automatic resume. Secret steps are allowed only last,
 without a text condition. Reconnect after completion before continuing work.
 No device-specific initialization sequence is supplied without reviewed evidence.
+# Legacy XML and VCE
+
+Choose **Import legacy** in the catalog editor to preview an XML or VCE file.
+Select individual rows deliberately. Import preserves the source and command
+spelling, including historical `AT#CMGF=1`; compound syntax, unknown commands and
+duplicates carry warnings. Credential literals cannot be imported. XML DTDs and
+entities are rejected; sources are limited to 1 MiB and 1,000 entries.
+
+Selected rows form a new profile. Every imported command remains unverified and
+disabled until its applicability, syntax and risk are checked in the editor.
+Import never sends bytes or launches processes. UTF-8 and BOM-marked UTF-16 are
+supported; other encodings require an explicit conversion of a copy.
