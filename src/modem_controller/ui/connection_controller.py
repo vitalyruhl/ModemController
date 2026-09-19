@@ -344,6 +344,8 @@ class SerialConnectionWorker(QObject):
         except ValueError as error:
             self.error.emit(str(error))
             result = None
+        finally:
+            values.clear()
         self.maintenance_completed.emit(result)
         self.close()
         self.workflow_finished.emit()

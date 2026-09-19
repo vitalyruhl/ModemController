@@ -385,6 +385,9 @@ class MainWindow(QMainWindow):
         if command.kind is CommandKind.SEQUENCE:
             self._request_sequence(command)
             return
+        if any(parameter.secret for parameter in command.parameters):
+            self._request_maintenance(command)
+            return
         if command.risk is RiskLevel.READ_ONLY:
             values = self._preset_parameters(command)
             if values is None:
@@ -409,6 +412,11 @@ class MainWindow(QMainWindow):
         self._request_maintenance(command)
 
     def _preset_parameters(self, command: CatalogCommand) -> dict[str, str] | None:
+        if any(parameter.secret for parameter in command.parameters):
+            self.terminal.validation_message.setText(
+                "Secret parameters require the confirmed password workflow."
+            )
+            return None
         values = {}
         for parameter in command.parameters:
             value, accepted = QInputDialog.getText(

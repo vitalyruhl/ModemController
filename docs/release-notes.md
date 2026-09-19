@@ -6,6 +6,9 @@ The catalog editor exposes Direct execution/send beside Favorite and persists
 the independent choice in JSON. Commands can be prepared in the AT/hex input or
 executed through their existing reviewed, confirmed path. Older configurations
 keep their defaults; unverified commands and sensitive workflows retain their gates.
+Declared secret parameters always use masked, confirmed input and suppressed
+capture, including custom commands labeled read-only. Transient values are cleared
+after the worker finishes.
 
 Resizing the editor now expands its command list and editable content. In the main
 window, categories and commands share additional vertical space at a 1:2 ratio;

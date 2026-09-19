@@ -115,7 +115,9 @@ class MaintenanceRunner:
             raise CommandUnavailableError(
                 "maintenance actions must be individual AT commands"
             )
-        if command.risk is RiskLevel.READ_ONLY:
+        if command.risk is RiskLevel.READ_ONLY and not any(
+            parameter.secret for parameter in command.parameters
+        ):
             raise ValueError("read-only commands do not need maintenance confirmation")
 
 

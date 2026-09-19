@@ -155,6 +155,7 @@ def build(*, candidate: bool = False) -> Path:
         "development.md",
         "reference/at-commands.md",
         "reference/legacy-command-inventory.md",
+        "reference/gsm-sms-initialization.md",
     ):
         text = (PROJECT_ROOT / "docs" / name).read_text(encoding="utf-8")
         if name == "third-party-notices.md":
