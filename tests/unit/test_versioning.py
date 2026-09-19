@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from modem_controller.versioning import product_version, read_version, version_label
+from modem_controller.versioning import product_version, read_version
 
 
 @pytest.mark.parametrize(
@@ -35,7 +35,7 @@ def test_source_package_and_gui_version_agree(qtbot):
     assert expected == product_version() == version("modem-controller-rs232")
     window = MainWindow(port_provider=lambda: [])
     qtbot.addWidget(window)
-    assert version_label() in window.windowTitle()
+    assert window.windowTitle() == f"Modem Controller {expected}"
 
 
 def test_packaged_resource_used_without_source(monkeypatch, tmp_path):

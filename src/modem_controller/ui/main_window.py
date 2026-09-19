@@ -52,7 +52,7 @@ from modem_controller.ui.session_log import LogMode, LogWriteError, SessionLog
 from modem_controller.ui.sms_dialog import SmsDialog
 from modem_controller.ui.terminal_view import TerminalWorkspace
 from modem_controller.ui.tools_dialog import ToolsDialog
-from modem_controller.versioning import version_label
+from modem_controller.versioning import product_version
 from modem_controller.workflows.connection_search import (
     ConnectionSearchResult,
     settings_from_preferences,
@@ -103,7 +103,7 @@ class MainWindow(QMainWindow):
         self._session_log = SessionLog()
         self._workflow_active = False
         self._preset_execution_enabled = False
-        self.setWindowTitle(f"Modem Controller {version_label()}")
+        self.setWindowTitle(f"Modem Controller {product_version()}")
         self.resize(1_080, 720)
 
         self.connection_panel = ConnectionPanel(self)

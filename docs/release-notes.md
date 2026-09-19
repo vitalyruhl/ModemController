@@ -1,5 +1,12 @@
 # Release notes
 
+## 2.0.1 - desktop feedback corrections
+
+The window title shows only the product version. Terminal output continues
+following new replies after wrapped text, resizing and focus changes; deliberately
+scrolling into history still pauses following. Build metadata refreshes when the
+canonical version file changes, avoiding stale installed package versions.
+
 ## 2.0.0 - local candidate preparation
 
 Python rewrite with an English desktop, shared serial terminal, reviewed modem

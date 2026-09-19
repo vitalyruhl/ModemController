@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from enum import Enum
 
 from PySide6.QtCore import QEvent, Qt, Signal
+from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -390,6 +391,8 @@ class TerminalWorkspace(QWidget):
         position = self.transcript.verticalScrollBar().value()
         self.transcript.verticalScrollBar().blockSignals(True)
         self.transcript.setPlainText("\n".join(lines))
+        if not paused:
+            self.transcript.moveCursor(QTextCursor.End)
         scroll_bar = self.transcript.verticalScrollBar()
         scroll_bar.setValue(position if paused else scroll_bar.maximum())
         scroll_bar.blockSignals(False)
