@@ -2,23 +2,40 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, docs/python-modem-upgrade-plan]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      candidate:
+        description: Build a clean-source candidate bundle
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: pwsh
+
 jobs:
   quality:
-    name: quality
-    runs-on: ubuntu-latest
+    name: Windows quality (Python ${{ matrix.python-version }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    env:
+      QT_QPA_PLATFORM: offscreen
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
-          python-version: "3.12"
-      - uses: astral-sh/setup-uv@v10.0.1
+          python-version: ${{ matrix.python-version }}
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: true
       - name: Synchronize locked environment
@@ -31,3 +48,44 @@ jobs:
         run: uv run pytest
       - name: Build package
         run: uv build
+
+  portable:
+    name: Windows portable bundle
+    if: github.event_name == 'workflow_dispatch'
+    needs: quality
+    runs-on: windows-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+      - name: Synchronize locked environment
+        run: uv sync --frozen
+      - name: Build portable bundle
+        run: |
+          if ("${{ inputs.candidate }}" -eq "true") {
+            uv run --frozen --no-sync python tools/build_portable.py --candidate
+          } else {
+            uv run --frozen --no-sync python tools/build_portable.py
+          }
+      - name: Smoke frozen GUI and console
+        run: |
+          $archive = Get-ChildItem dist -Filter *.zip | Sort-Object LastWriteTime | Select-Object -Last 1
+          if ($null -eq $archive) { throw "Portable archive was not created" }
+          uv run --frozen --no-sync python tools/verify_candidate.py $archive.FullName --smoke
+      - name: Upload portable archive
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: modem-controller-portable
+          path: |
+            dist/*.zip
+            dist/*.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
