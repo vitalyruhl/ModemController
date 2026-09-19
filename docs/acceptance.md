@@ -100,6 +100,18 @@ in [device-support.md](device-support.md).
 
 ## Remaining acceptance
 
+### User feedback on 2.0.1 (2026-09-19)
+
+The user reported successful command use, display modes and hexadecimal sending.
+The supplied BG95-M3 / BG95M3LAR02A03 terminal excerpt confirms replies to AT,
+identity, SIM readiness (`READY`), baud rate (`115200`) and message storage queries.
+It also contains successful `AT+CNMI=1,1`, `AT&W` and `AT+CMGF=1`, but an `ERROR`
+for `AT+CLIP=1`. These are user-operated observations, not a new agent hardware run.
+They do not establish SMS delivery, full initialization success, or complete
+acceptance of a milestone. Subsequent 2.1.0 changes require renewed user testing.
+
+### Outstanding gates
+
 | Gate | Current evidence / required action |
 | --- | --- |
 | Whole offline integration | 256 tests passed after review corrections; lint, formatting and wheel/sdist build passed |

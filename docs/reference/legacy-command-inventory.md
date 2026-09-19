@@ -63,7 +63,10 @@ terminal enclosure label does not establish compatibility with its embedded modu
 
 ## Availability and verification
 
-New historical entries are `unverified`. Non-secret AT templates can be prepared
+Historical entries remain `unverified` except the explicitly reviewed steps of
+the [user-defined GSM SMS initialization](gsm-sms-initialization.md), added in
+2.1.0. That source/workflow review is not device-specific HIL acceptance.
+Non-secret AT templates can be prepared
 for manual editing, but do not auto-send or enter diagnostics. PIN/PUK actions
 and complete sequences require separate review in the catalog editor before
 execution. Existing reviewed queries keep their previous scope.

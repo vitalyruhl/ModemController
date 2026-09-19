@@ -3,7 +3,7 @@
 from dataclasses import replace
 from unittest.mock import Mock
 
-from modem_controller.catalog.models import load_starter_catalog
+from modem_controller.catalog.models import VerificationStatus, load_starter_catalog
 from modem_controller.ui.catalog_editor import CatalogEditor
 from modem_controller.ui.main_window import MainWindow
 
@@ -56,7 +56,9 @@ def test_unverified_direct_flag_does_not_bypass_review(qtbot, monkeypatch):
     monkeypatch.setattr(window, "_controller", lambda: controller)
     window.set_preset_execution_enabled(True)
     command = window._catalog.profile("generic-at").command("sms-text-mode")
-    window._request_preset(replace(command, direct_send=True))
+    window._request_preset(
+        replace(command, direct_send=True, verification=VerificationStatus.UNVERIFIED)
+    )
     assert window.terminal.command_input.text() == "AT+CMGF=1"
     assert not controller.mock_calls
 

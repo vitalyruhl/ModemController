@@ -665,6 +665,7 @@ class MainWindow(QMainWindow):
             return
         summary = "\n".join(
             f"{index + 1}. {profile.command(step.command_id).label}: "
+            f"{profile.command(step.command_id).payload} — "
             f"{profile.command(step.command_id).risk.value}, "
             f"deadline {step.timeout_seconds:g}s, "
             f"delay {step.delay_seconds:g}s, condition {step.expected_contains or 'OK'}"
@@ -674,7 +675,9 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(
                 self,
                 "Confirm reviewed sequence",
-                summary
+                command.help_text
+                + "\n\n"
+                + summary
                 + "\n\nRun once? Stops on failure; no automatic retry or resume.",
                 QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.No,

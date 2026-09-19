@@ -16,6 +16,12 @@ product version, license and fixed UTC build timestamp. The duplicate Messaging
 menu is removed; **Prepare SMS** is the single entry point and explains when
 connection or profile capabilities prevent SMS actions.
 
+Generic AT → Setup now includes the user-defined full GSM SMS initialization,
+including `AT+CLIP=1`, as ten separately acknowledged steps. Its confirmation
+shows the commands and reset/data/persistence effects. Failure identifies the
+stopped step and prevents later commands. Compatibility remains device-dependent;
+the user's BG95 returned ERROR for CLIP. No full initialization was run on hardware.
+
 ## 2.0.1 - desktop feedback corrections
 
 The window title shows only the product version. Terminal output continues

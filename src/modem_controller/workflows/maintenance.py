@@ -171,18 +171,22 @@ class SequenceRunner:
         sent = False
         secret_used = False
         outcome = MaintenanceOutcome.CANCELLED
+        progress = "Sequence was not confirmed."
         deadline = self._clock() + total_timeout
         if confirmed:
             outcome = MaintenanceOutcome.COMPLETED
-            for step, command, args in zip(
-                sequence.sequence_steps, commands, arguments, strict=True
+            for index, (step, command, args) in enumerate(
+                zip(sequence.sequence_steps, commands, arguments, strict=True), 1
             ):
+                progress = f"Stopped at step {index} ({command.id})."
                 if self._cancelled():
                     outcome = MaintenanceOutcome.CANCELLED
+                    progress += " Cancelled before sending."
                     break
                 remaining = deadline - self._clock()
                 if remaining <= 0:
                     outcome = MaintenanceOutcome.INCONCLUSIVE
+                    progress += " Total time budget exhausted before sending."
                     break
                 sent = True
                 secret = any(p.secret for p in command.parameters)
@@ -203,21 +207,37 @@ class SequenceRunner:
                     )
                 ):
                     outcome = MaintenanceOutcome.INCONCLUSIVE
+                    if secret:
+                        progress += " Sensitive step did not complete successfully."
+                    elif exchange.final_result == b"ERROR":
+                        progress += " Modem returned ERROR."
+                    elif exchange.final_result != b"OK":
+                        progress += (
+                            " No successful final OK response "
+                            f"({exchange.outcome.value})."
+                        )
+                    else:
+                        progress += " Response condition or time budget not met."
                     break
                 remaining = deadline - self._clock()
                 if step.delay_seconds > remaining:
                     outcome = MaintenanceOutcome.INCONCLUSIVE
+                    progress += " Delay exceeds remaining time budget."
                     break
                 if step.delay_seconds:
                     self._wait(step.delay_seconds)
                 if self._cancelled():
                     outcome = MaintenanceOutcome.CANCELLED
+                    progress += " Cancelled after sending."
                     break
+            else:
+                progress = f"Completed all {len(commands)} steps."
         return MaintenanceResult(
             sequence.id,
             outcome,
             tuple(evidence),
             sent,
             "Sensitive step excluded from capture." if secret_used else None,
-            "Reconnect before another action. No automatic retry or resume.",
+            progress
+            + " Reconnect before another action. No automatic retry or resume.",
         )

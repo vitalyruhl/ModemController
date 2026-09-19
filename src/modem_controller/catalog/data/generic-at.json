@@ -3,7 +3,8 @@
   "references": {
     "at-text-reference": "docs/reference/at-commands.md",
     "yat-trial": "docs/reference/legacy-command-inventory.md",
-    "legacy-command-inventory": "docs/reference/legacy-command-inventory.md"
+    "legacy-command-inventory": "docs/reference/legacy-command-inventory.md",
+    "gsm-sms-init": "docs/reference/gsm-sms-initialization.md"
   },
   "profiles": [
     {
@@ -337,12 +338,14 @@
             "generic-at"
           ],
           "references": [
-            "at-text-reference"
+            "at-text-reference",
+            "gsm-sms-init"
           ],
           "verification": "supported",
           "expected_response": "OK or device-specific error",
           "timeout_seconds": 10,
-          "parameters": []
+          "parameters": [],
+          "direct_send": false
         },
         {
           "id": "ras-collector",
@@ -636,18 +639,20 @@
           "category": "SMS",
           "kind": "at",
           "payload": "AT+CMGF=1",
-          "help_text": "Historical template: Use SMS text mode. Check the modem manual before sending.",
+          "help_text": "Historical template: Use SMS text mode. Check the modem manual before sending. Part of the user-defined GSM SMS initialization; device compatibility still requires testing.",
           "risk": "state_changing",
           "applicability": [
             "generic-at"
           ],
           "references": [
-            "legacy-command-inventory"
+            "legacy-command-inventory",
+            "gsm-sms-init"
           ],
-          "verification": "unverified",
+          "verification": "supported",
           "expected_response": "Device-specific response or error",
           "timeout_seconds": 5,
-          "parameters": []
+          "parameters": [],
+          "direct_send": false
         },
         {
           "id": "sms-delete-read",
@@ -712,18 +717,20 @@
           "category": "Setup",
           "kind": "at",
           "payload": "AT+CREG=1",
-          "help_text": "Historical template: Report registration changes. Check the modem manual before sending.",
+          "help_text": "Historical template: Report registration changes. Check the modem manual before sending. Part of the user-defined GSM SMS initialization; device compatibility still requires testing.",
           "risk": "state_changing",
           "applicability": [
             "generic-at"
           ],
           "references": [
-            "legacy-command-inventory"
+            "legacy-command-inventory",
+            "gsm-sms-init"
           ],
-          "verification": "unverified",
+          "verification": "supported",
           "expected_response": "Device-specific response or error",
           "timeout_seconds": 5,
-          "parameters": []
+          "parameters": [],
+          "direct_send": false
         },
         {
           "id": "caller-id",
@@ -731,18 +738,20 @@
           "category": "Setup",
           "kind": "at",
           "payload": "AT+CLIP=1",
-          "help_text": "Historical template: Show caller ID. Check the modem manual before sending.",
+          "help_text": "Enables incoming caller-number indications. Does not control sending your own number (CLIR). The observed BG95 firmware returned ERROR; the full initialization stops if this step fails.",
           "risk": "state_changing",
           "applicability": [
             "generic-at"
           ],
           "references": [
-            "legacy-command-inventory"
+            "legacy-command-inventory",
+            "gsm-sms-init"
           ],
-          "verification": "unverified",
+          "verification": "supported",
           "expected_response": "Device-specific response or error",
           "timeout_seconds": 5,
-          "parameters": []
+          "parameters": [],
+          "direct_send": false
         },
         {
           "id": "extended-ring",
@@ -750,18 +759,20 @@
           "category": "Setup",
           "kind": "at",
           "payload": "AT+CRC=1",
-          "help_text": "Historical template: Extended ring indications. Check the modem manual before sending.",
+          "help_text": "Historical template: Extended ring indications. Check the modem manual before sending. Part of the user-defined GSM SMS initialization; device compatibility still requires testing.",
           "risk": "state_changing",
           "applicability": [
             "generic-at"
           ],
           "references": [
-            "legacy-command-inventory"
+            "legacy-command-inventory",
+            "gsm-sms-init"
           ],
-          "verification": "unverified",
+          "verification": "supported",
           "expected_response": "Device-specific response or error",
           "timeout_seconds": 5,
-          "parameters": []
+          "parameters": [],
+          "direct_send": false
         },
         {
           "id": "sms-notification-enable",
@@ -769,18 +780,20 @@
           "category": "SMS",
           "kind": "at",
           "payload": "AT+CNMI=1,1",
-          "help_text": "Historical template: Enable SMS notifications. Check the modem manual before sending.",
+          "help_text": "Historical template: Enable SMS notifications. Check the modem manual before sending. Part of the user-defined GSM SMS initialization; device compatibility still requires testing.",
           "risk": "state_changing",
           "applicability": [
             "generic-at"
           ],
           "references": [
-            "legacy-command-inventory"
+            "legacy-command-inventory",
+            "gsm-sms-init"
           ],
-          "verification": "unverified",
+          "verification": "supported",
           "expected_response": "Device-specific response or error",
           "timeout_seconds": 5,
-          "parameters": []
+          "parameters": [],
+          "direct_send": false
         },
         {
           "id": "sms-storage-mt",
@@ -788,18 +801,20 @@
           "category": "SMS",
           "kind": "at",
           "payload": "AT+CPMS=\"MT\"",
-          "help_text": "Historical template: Use combined SMS storage. Check the modem manual before sending.",
+          "help_text": "Historical template: Use combined SMS storage. Check the modem manual before sending. Part of the user-defined GSM SMS initialization; device compatibility still requires testing.",
           "risk": "state_changing",
           "applicability": [
             "generic-at"
           ],
           "references": [
-            "legacy-command-inventory"
+            "legacy-command-inventory",
+            "gsm-sms-init"
           ],
-          "verification": "unverified",
+          "verification": "supported",
           "expected_response": "Device-specific response or error",
           "timeout_seconds": 5,
-          "parameters": []
+          "parameters": [],
+          "direct_send": false
         },
         {
           "id": "hang-up",
@@ -1099,6 +1114,148 @@
           "expected_response": "Device-specific response or error",
           "timeout_seconds": 5,
           "parameters": []
+        },
+        {
+          "id": "packet-detach",
+          "label": "Detach packet service",
+          "category": "Setup",
+          "kind": "at",
+          "payload": "AT+CGATT=0",
+          "help_text": "Detaches packet service; an active data connection can be interrupted. Part of the user-defined GSM SMS initialization; device compatibility still requires testing.",
+          "risk": "state_changing",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "gsm-sms-init"
+          ],
+          "verification": "supported",
+          "expected_response": "OK",
+          "timeout_seconds": 5,
+          "parameters": [],
+          "direct_send": false
+        },
+        {
+          "id": "pdp-context-clear",
+          "label": "Clear PDP context 1 APN",
+          "category": "Setup",
+          "kind": "at",
+          "payload": "AT+CGDCONT=1,\"IP\",\"\"",
+          "help_text": "Overwrites PDP context 1 with IP and an empty APN. Part of the user-defined GSM SMS initialization; device compatibility still requires testing.",
+          "risk": "state_changing",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "gsm-sms-init"
+          ],
+          "verification": "supported",
+          "expected_response": "OK",
+          "timeout_seconds": 5,
+          "parameters": [],
+          "direct_send": false
+        },
+        {
+          "id": "save-profile",
+          "label": "Save active profile",
+          "category": "Setup",
+          "kind": "at",
+          "payload": "AT&W",
+          "help_text": "Persists the active settings supported by the modem into its saved profile. Part of the user-defined GSM SMS initialization; device compatibility still requires testing.",
+          "risk": "state_changing",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "gsm-sms-init"
+          ],
+          "verification": "supported",
+          "expected_response": "OK",
+          "timeout_seconds": 5,
+          "parameters": [],
+          "direct_send": false
+        },
+        {
+          "id": "gsm-sms-init",
+          "label": "Full GSM SMS initialization",
+          "category": "Setup",
+          "kind": "sequence",
+          "payload": null,
+          "help_text": "User-defined initialization: restores factory settings, enables incoming caller ID, detaches packet service, overwrites PDP context 1 and saves settings with AT&W. Sends no SMS. Device compatibility is not confirmed. Stops on the first error, including CLIP (ERROR observed on BG95).",
+          "risk": "destructive",
+          "applicability": [
+            "generic-at"
+          ],
+          "references": [
+            "gsm-sms-init"
+          ],
+          "verification": "supported",
+          "expected_response": "OK after every step",
+          "timeout_seconds": 30,
+          "parameters": [],
+          "direct_send": false,
+          "sequence_steps": [
+            {
+              "command_id": "restore-defaults",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "registration-notifications",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "extended-ring",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "caller-id",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "sms-text-mode",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "sms-notification-enable",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "sms-storage-mt",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "packet-detach",
+              "expected_contains": "",
+              "timeout_seconds": 10,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "pdp-context-clear",
+              "expected_contains": "",
+              "timeout_seconds": 5,
+              "delay_seconds": 0
+            },
+            {
+              "command_id": "save-profile",
+              "expected_contains": "",
+              "timeout_seconds": 2,
+              "delay_seconds": 0
+            }
+          ]
         }
       ]
     }

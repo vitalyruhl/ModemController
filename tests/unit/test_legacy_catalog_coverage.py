@@ -25,7 +25,7 @@ def test_generic_legacy_templates_are_disabled_and_not_diagnostic() -> None:
         "unblock-sim",
         "sms-delete-read",
         "sms-delete-all",
-        "sms-text-mode",
+        "sms-ira-charset",
         "dial-voice",
     }
 

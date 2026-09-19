@@ -58,6 +58,10 @@ stops without retry or automatic resume. Secret steps are allowed only last,
 without a text condition. Reconnect after completion before continuing work.
 Historical initialization templates may be stored as unverified sequences.
 No device-specific initialization sequence is enabled without reviewed evidence.
+
+The user-defined **Generic AT → Setup → Full GSM SMS initialization** is documented
+with its exact commands and effects in [GSM SMS initialization](reference/gsm-sms-initialization.md).
+Its generic source/workflow review does not establish device compatibility.
 # Legacy XML and VCE
 
 Choose **Import legacy** in the catalog editor to preview an XML or VCE file.
