@@ -273,19 +273,17 @@ class MainWindow(QMainWindow):
             if c.is_visible
             or (
                 c.verification is VerificationStatus.UNVERIFIED
-                and c.kind in {CommandKind.AT, CommandKind.SEQUENCE}
+                and c.kind in {CommandKind.AT, CommandKind.BYTES, CommandKind.SEQUENCE}
             )
         )
 
     def _prepares_command(self, command: CatalogCommand) -> bool:
-        return (
-            command.kind is CommandKind.AT
-            and not any(p.secret for p in command.parameters)
-            and (
-                command.risk is not RiskLevel.READ_ONLY
-                or bool(command.parameters)
-                or not command.is_visible
-                or command not in self._selected_profile().commands
+        return command.supports_direct_send_option and (
+            not command.uses_direct_send
+            or not command.is_visible
+            or (
+                command.direct_send is None
+                and command not in self._selected_profile().commands
             )
         )
 
@@ -375,7 +373,14 @@ class MainWindow(QMainWindow):
             self._request_sequence(command)
             return
         if command.risk is RiskLevel.READ_ONLY:
-            payload = command.render()
+            values = self._preset_parameters(command)
+            if values is None:
+                return
+            try:
+                payload = command.render(values)
+            except ValueError as error:
+                self.terminal.validation_message.setText(str(error))
+                return
             if command.kind is CommandKind.AT:
                 payload += self.terminal.selected_terminator
             self.terminal.append_transmitted(payload)
@@ -390,15 +395,28 @@ class MainWindow(QMainWindow):
             return
         self._request_maintenance(command)
 
-    def _prepare_command(self, command: CatalogCommand) -> None:
+    def _preset_parameters(self, command: CatalogCommand) -> dict[str, str] | None:
         values = {}
         for parameter in command.parameters:
             value, accepted = QInputDialog.getText(
                 self, f"Prepare {command.label}", parameter.label, QLineEdit.Normal
             )
             if not accepted:
-                return
+                return None
             values[parameter.name] = value
+        return values
+
+    def _prepare_command(self, command: CatalogCommand) -> None:
+        values = self._preset_parameters(command)
+        if values is None:
+            return
+        if command.kind is CommandKind.BYTES:
+            self.terminal.hex_input.setText(command.render(values).hex(" ").upper())
+            self.terminal.hex_input.setFocus()
+            self.terminal.validation_message.setText(
+                "Prepared only. Check the bytes, then press Send hex."
+            )
+            return
         try:
             payload = command.render(values).decode("ascii")
             if any(

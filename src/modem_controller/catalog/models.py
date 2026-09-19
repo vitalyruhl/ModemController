@@ -159,6 +159,7 @@ class CatalogCommand:
     parameters: tuple[ParameterDefinition, ...] = ()
     external_tool_id: str | None = None
     sequence_steps: tuple[SequenceStep, ...] = ()
+    direct_send: bool | None = None
 
     def __post_init__(self) -> None:
         _validate_identifier(self.id, "command id")
@@ -180,6 +181,8 @@ class CatalogCommand:
             self.parameters
         ):
             raise CatalogValidationError("command parameter names must be unique")
+        if self.direct_send is not None and not isinstance(self.direct_send, bool):
+            raise CatalogValidationError("direct_send must be a boolean or null")
         if self.kind is CommandKind.EXTERNAL_TOOL:
             if self.external_tool_id is None or self.payload is not None:
                 raise CatalogValidationError(
@@ -218,6 +221,32 @@ class CatalogCommand:
             self.is_visible
             and self.kind is CommandKind.AT
             and self.risk is RiskLevel.READ_ONLY
+        )
+
+    @property
+    def supports_direct_send_option(self) -> bool:
+        """Whether an ordinary transport preset can expose the direct-send choice."""
+
+        return self.kind in {CommandKind.AT, CommandKind.BYTES} and not any(
+            parameter.secret for parameter in self.parameters
+        )
+
+    @property
+    def uses_direct_send(self) -> bool:
+        """Resolve the direct-send strategy for ordinary transport presets."""
+
+        if not self.supports_direct_send_option:
+            return False
+        if self.direct_send is not None:
+            return self.direct_send
+        if not self.is_visible:
+            return False
+        if self.kind is CommandKind.BYTES:
+            return True
+        return (
+            self.kind is CommandKind.AT
+            and self.risk is RiskLevel.READ_ONLY
+            and not self.parameters
         )
 
     def render(self, values: dict[str, str] | None = None) -> bytes:
@@ -271,6 +300,7 @@ class CatalogCommand:
             "parameters": [parameter.to_dict() for parameter in self.parameters],
             "external_tool_id": self.external_tool_id,
             "sequence_steps": [step.to_dict() for step in self.sequence_steps],
+            "direct_send": self.direct_send,
         }
 
     @classmethod
@@ -297,6 +327,7 @@ class CatalogCommand:
                 SequenceStep.from_dict(step)
                 for step in _object_list(data, "sequence_steps")
             ),
+            direct_send=_optional_bool_or_none(data, "direct_send"),
         )
 
 
@@ -503,6 +534,13 @@ def _optional_bool(data: dict[str, Any], key: str, default: bool) -> bool:
     value = data.get(key, default)
     if not isinstance(value, bool):
         raise CatalogValidationError(f"{key} must be a boolean")
+    return value
+
+
+def _optional_bool_or_none(data: dict[str, Any], key: str) -> bool | None:
+    value = data.get(key)
+    if value is not None and not isinstance(value, bool):
+        raise CatalogValidationError(f"{key} must be a boolean or null")
     return value
 
 

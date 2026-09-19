@@ -6,6 +6,7 @@ from importlib.resources import files
 from pathlib import Path
 
 from modem_controller.catalog.models import (
+    CatalogCommand,
     CommandCatalog,
     VerificationStatus,
     load_starter_catalog,
@@ -80,7 +81,7 @@ def load_portable_catalog(directory: Path, *, defaults=None) -> CommandCatalog:
                 p,
                 commands=tuple(
                     c
-                    if c == shipped.get((p.id, c.id))
+                    if _preserves_reviewed_verification(c, shipped.get((p.id, c.id)))
                     else replace(c, verification=VerificationStatus.UNVERIFIED)
                     for c in p.commands
                 ),
@@ -90,3 +91,14 @@ def load_portable_catalog(directory: Path, *, defaults=None) -> CommandCatalog:
     )
     validate_persisted_catalog(current)
     return current
+
+
+def _preserves_reviewed_verification(
+    command: CatalogCommand, shipped_command: CatalogCommand | None
+) -> bool:
+    """A local send-strategy choice does not alter a command's device evidence."""
+
+    return shipped_command is not None and (
+        command == shipped_command
+        or replace(command, direct_send=shipped_command.direct_send) == shipped_command
+    )

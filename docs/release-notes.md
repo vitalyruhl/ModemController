@@ -1,5 +1,12 @@
 # Release notes
 
+## 2.1.0 - explicit command execution choices
+
+The catalog editor exposes Direct execution/send beside Favorite and persists
+the independent choice in JSON. Commands can be prepared in the AT/hex input or
+executed through their existing reviewed, confirmed path. Older configurations
+keep their defaults; unverified commands and sensitive workflows retain their gates.
+
 ## 2.0.1 - desktop feedback corrections
 
 The window title shows only the product version. Terminal output continues

@@ -12,8 +12,18 @@ search and command list stay visible while the form scrolls. Select another butt
 in the list on the left. Common fields appear first; expand **Advanced** for protocol
 details, verification, sequence steps and parameter definitions.
 
-The main window uses category buttons. Non-secret parameterized or state-changing
-AT presets fill the command field; inspect the result and press **Send** separately.
+The main window uses category buttons. **Direct execution/send**, beside Favorite,
+controls each ordinary command: unchecked prepares the AT command or exact hex;
+checked executes a reviewed command when its button is clicked. Parameters are
+collected before execution. State-changing commands and control bytes retain their
+confirmation; PIN/PUK, SMS and sequences retain their separate workflows.
+Unverified commands cannot bypass review through this checkbox.
+
+The JSON field is `direct_send` (`true` or `false`). Missing/null values preserve
+legacy defaults; applying fields in the editor records the displayed choice.
+Changing this choice alone does not change Risk or Verification. Non-secret
+parameterized or state-changing presets default to preparation; inspect the result
+and press **Send** separately.
 **Prepare SMS** opens recipient/message fields without sending. Reviewed simple
 status queries retain one-click sending. PIN/PUK values use transient secret
 prompts, and complete sequences require review. See the

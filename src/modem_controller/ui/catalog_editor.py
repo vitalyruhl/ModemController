@@ -93,6 +93,12 @@ class CatalogEditor(QWidget):
         self.verification = QComboBox(self)
         self.verification.addItems([x.value for x in VerificationStatus])
         self.favorite = QCheckBox("Favorite", self)
+        self.direct_send = QCheckBox("Direct execution/send", self)
+        self.direct_send.setToolTip(
+            "Checked: execute the reviewed command when clicked. "
+            "Unchecked: prepare it in the AT or hex input. "
+            "Review and workflow confirmations still apply."
+        )
         self.notes = QPlainTextEdit(self)
         self.notes.setMaximumHeight(65)
         self.shipped_notes = QLabel(self)
@@ -110,9 +116,13 @@ class CatalogEditor(QWidget):
             ("Category", self.category),
             ("Command / exact hex", self.payload),
             ("Help", self.help_text),
-            ("", self.favorite),
         ):
             form.addRow(name, widget)
+        command_options = QHBoxLayout()
+        command_options.addWidget(self.favorite)
+        command_options.addWidget(self.direct_send)
+        command_options.addStretch()
+        form.addRow("", command_options)
         self.advanced = QGroupBox("Advanced command settings", self)
         self.advanced.setCheckable(True)
         self.advanced.setChecked(False)
@@ -203,6 +213,7 @@ class CatalogEditor(QWidget):
             widget.currentTextChanged.connect(self._mark_dirty)
         self.timeout.valueChanged.connect(self._mark_dirty)
         self.favorite.toggled.connect(self._mark_dirty)
+        self.direct_send.toggled.connect(self._mark_dirty)
         self.parameters.itemChanged.connect(self._mark_dirty)
         self._load_profile()
         self.resize(920, 620)
@@ -302,6 +313,7 @@ class CatalogEditor(QWidget):
             self.payload,
             self.help_text,
             self.favorite,
+            self.direct_send,
             self.advanced,
         ):
             widget.setEnabled(command_id is not None)
@@ -340,6 +352,8 @@ class CatalogEditor(QWidget):
         self.risk.setCurrentText(command.risk.value)
         self.verification.setCurrentText(command.verification.value)
         self.favorite.setChecked(f"{self._profile().id}/{command.id}" in self.favorites)
+        self.direct_send.setChecked(command.uses_direct_send)
+        self.direct_send.setEnabled(command.supports_direct_send_option)
         self.parameters.setRowCount(len(command.parameters))
         for row, parameter in enumerate(command.parameters):
             for column, value in enumerate(
@@ -429,6 +443,11 @@ class CatalogEditor(QWidget):
                 sequence_steps=tuple(
                     SequenceStep.from_dict(step)
                     for step in json.loads(self.steps.toPlainText() or "[]")
+                ),
+                direct_send=(
+                    self.direct_send.isChecked()
+                    if self.direct_send.isEnabled()
+                    else old.direct_send
                 ),
             )
             execution_changed = any(
